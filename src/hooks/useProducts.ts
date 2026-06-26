@@ -5,6 +5,7 @@ import {
   searchProducts,
   getCategories,
   getProductsByCategory,
+  getLimitedProducts,
 } from "@/services/api";
 
 export function useProducts(limit: number = 12, skip: number = 0) {
@@ -42,5 +43,15 @@ export function useProductsByCategory(category: string) {
     queryKey: ["products", "category", category],
     queryFn: () => getProductsByCategory(category),
     enabled: !!category,
+  });
+}
+
+export function useLimitedProducts(
+  limit: number,
+  skip: number
+) {
+  return useQuery({
+    queryKey: ["limited-products", limit, skip],
+    queryFn: () => getLimitedProducts(limit, skip),
   });
 }

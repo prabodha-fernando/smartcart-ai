@@ -8,22 +8,22 @@ import ProductSkeleton from "@/components/products/ProductSkeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import EmptyState from "@/components/ui/EmptyState";
 import {
-  useProducts,
   useSearchProducts,
   useCategories,
   useProductsByCategory,
+  useLimitedProducts,
 } from "@/hooks/useProducts";
 import { useState } from "react";
-import { Product } from "@/types/product";
 
 export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [page, setPage] = useState(1);
-  const limit = 12;
+  const limit = 10;
   const skip = (page - 1) * limit;
 
-  const { data: allProducts, isLoading, isError } = useProducts(limit, skip);
+  const { data: allProducts, isLoading, isError } =
+    useLimitedProducts(limit, skip);
   const { data: categories } = useCategories();
   const { data: categoryProducts } = useProductsByCategory(selectedCategory);
   const { data: searchResults } = useSearchProducts(search);
@@ -86,7 +86,7 @@ export default function ProductsPage() {
 
           {!isLoading && !isError && products && products.length > 0 && (
             <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {products.map((product: Product) => (
+              {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>

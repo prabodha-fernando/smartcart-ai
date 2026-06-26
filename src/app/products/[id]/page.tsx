@@ -5,6 +5,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useProduct } from "@/hooks/useProducts";
 import { useParams } from "next/navigation";
 import { useFavoritesStore } from "@/store/favoritesStore";
+import Image from "next/image";
 
 export default function ProductDetailsPage() {
   const params = useParams();
@@ -51,20 +52,30 @@ export default function ProductDetailsPage() {
 
       <section className="mx-auto grid max-w-7xl gap-8 px-6 py-10 lg:grid-cols-2">
         <div className="rounded-3xl border bg-white p-6 shadow-sm">
-          <img
-            src={product.thumbnail}
-            alt={product.title}
-            className="h-96 w-full rounded-2xl bg-gray-50 object-contain"
-          />
+          <div className="relative h-96 w-full overflow-hidden rounded-2xl bg-gray-50">
+            <Image
+              src={product.thumbnail}
+              alt={product.title}
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-contain"
+            />
+          </div>
 
           <div className="mt-4 grid grid-cols-4 gap-3">
             {product.images?.map((image) => (
-              <img
+              <div
                 key={image}
-                src={image}
-                alt={product.title}
-                className="h-20 w-full rounded-xl border bg-gray-50 object-contain p-2"
-              />
+                className="relative h-20 w-full overflow-hidden rounded-xl border bg-gray-50"
+              >
+                <Image
+                  src={image}
+                  alt={product.title}
+                  fill
+                  sizes="(min-width: 1024px) 12vw, 25vw"
+                  className="object-contain p-2"
+                />
+              </div>
             ))}
           </div>
         </div>

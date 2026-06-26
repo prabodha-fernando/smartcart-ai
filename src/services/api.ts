@@ -1,6 +1,11 @@
 import { publicApi, privateApi  } from "@/lib/axios";
 import { LoginResponse, User } from "@/types/user";
-import { Product, ProductCategory, ProductsResponse } from "@/types/product";
+import {
+  LimitedProductsResponse,
+  Product,
+  ProductCategory,
+  ProductsResponse,
+} from "@/types/product";
 
 // LOGIN (PUBLIC)
 export async function loginUser(
@@ -73,6 +78,17 @@ export async function getProductsByCategory(
   category: string
 ): Promise<ProductsResponse> {
   const response = await publicApi.get(`/products/category/${category}`);
+
+  return response.data;
+}
+
+export async function getLimitedProducts(
+  limit: number,
+  skip: number
+): Promise<LimitedProductsResponse> {
+  const response = await publicApi.get(
+    `/products?limit=${limit}&skip=${skip}&select=title,price,rating,thumbnail`
+  );
 
   return response.data;
 }
