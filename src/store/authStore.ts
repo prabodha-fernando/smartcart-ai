@@ -1,17 +1,20 @@
 import { create } from "zustand";
-import { LoginResponse } from "@/types/user";
+import { LoginResponse, User } from "@/types/user";
 
 interface AuthState {
-  user: LoginResponse | null;
+  user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
-  login: (data: LoginResponse) => void;
+
+  login: (user: User, tokens: LoginResponse) => void;
   logout: () => void;
   restoreAuth: () => void;
 }
 
 function notifyAuthStorageChanged() {
-  window.dispatchEvent(new Event("auth-storage"));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("auth-storage"));
+  }
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -19,22 +22,24 @@ export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
   refreshToken: null,
 
-  login: (data) => {
-    localStorage.setItem("accessToken", data.accessToken);
-    localStorage.setItem("refreshToken", data.refreshToken);
+  login: (user, tokens) => {
+    localStorage.setItem("accessToken", tokens.accessToken);
+    localStorage.setItem("refreshToken", tokens.refreshToken);
+    localStorage.setItem("user", JSON.stringify(user));
 
     notifyAuthStorageChanged();
 
     set({
-      user: data,
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
+      user,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     });
   },
 
   logout: () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
 
     notifyAuthStorageChanged();
 
@@ -48,10 +53,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   restoreAuth: () => {
     const accessToken = localStorage.getItem("accessToken");
     const refreshToken = localStorage.getItem("refreshToken");
+    const storedUser = localStorage.getItem("user");
 
     set({
       accessToken,
       refreshToken,
+      user: storedUser ? JSON.parse(storedUser) : null,
     });
   },
 }));

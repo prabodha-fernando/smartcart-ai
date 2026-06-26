@@ -7,6 +7,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Product } from "@/types/product";
 import ProductSkeleton from "@/components/products/ProductSkeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
+import AIAssistant from "@/components/ai/AIAssistant";
 
 export default function HomePage() {
   const { data, isLoading, isError } = useProducts();
@@ -26,18 +27,13 @@ export default function HomePage() {
               Discover smart shopping recommendations, compare products, and
               browse trending items.
             </p>
-
-            <div className="mt-6 flex gap-3">
-              <input
-                placeholder="Ask AI: What should I buy for university?"
-                className="w-full rounded-xl border px-4 py-3"
-              />
-
-              <button className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white">
-                Ask AI
-              </button>
-            </div>
           </div>
+
+          {!isLoading && !isError && data?.products && (
+            <div className="mt-6">
+              <AIAssistant products={data.products} />
+            </div>
+          )}
 
           <h2 className="mt-10 text-2xl font-bold text-gray-900">
             Trending Products
@@ -51,7 +47,9 @@ export default function HomePage() {
             </div>
           )}
 
-          {isError && <ErrorMessage message="Failed to load trending products." />}
+          {isError && (
+            <ErrorMessage message="Failed to load trending products." />
+          )}
 
           {!isLoading && !isError && (
             <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -60,12 +58,6 @@ export default function HomePage() {
               ))}
             </div>
           )}
-
-          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {data?.products?.slice(0, 8).map((product: Product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
         </section>
       </main>
     </ProtectedRoute>

@@ -6,28 +6,10 @@ import {
   refreshAccessToken,
 } from "@/services/api";
 
-function getStoredAccessToken() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const accessToken = localStorage.getItem("accessToken");
-
-  if (accessToken && isExpiredJwt(accessToken)) {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    return null;
-  }
-
-  return accessToken;
-}
-
 function isExpiredJwt(token: string) {
   const [, payload] = token.split(".");
 
-  if (!payload) {
-    return true;
-  }
+  if (!payload) return true;
 
   try {
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
@@ -35,6 +17,7 @@ function isExpiredJwt(token: string) {
       base64.length + ((4 - (base64.length % 4)) % 4),
       "="
     );
+
     const decodedPayload = JSON.parse(atob(paddedBase64));
 
     if (typeof decodedPayload.exp !== "number") {
@@ -47,10 +30,32 @@ function isExpiredJwt(token: string) {
   }
 }
 
-function subscribeToAuthStorage(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
+function notifyAuthStorageChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("auth-storage"));
   }
+}
+
+function getStoredAccessToken() {
+  if (typeof window === "undefined") return null;
+
+  const accessToken = localStorage.getItem("accessToken");
+
+  if (accessToken && isExpiredJwt(accessToken)) {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+
+    notifyAuthStorageChanged();
+
+    return null;
+  }
+
+  return accessToken;
+}
+
+function subscribeToAuthStorage(onStoreChange: () => void) {
+  if (typeof window === "undefined") return () => {};
 
   window.addEventListener("storage", onStoreChange);
   window.addEventListener("auth-storage", onStoreChange);
@@ -59,16 +64,6 @@ function subscribeToAuthStorage(onStoreChange: () => void) {
     window.removeEventListener("storage", onStoreChange);
     window.removeEventListener("auth-storage", onStoreChange);
   };
-}
-
-function subscribeToHydration(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  const frameId = window.requestAnimationFrame(onStoreChange);
-
-  return () => window.cancelAnimationFrame(frameId);
 }
 
 export function useLogin() {
@@ -91,12 +86,12 @@ export function useAuthUser() {
     queryFn: getAuthUser,
     enabled: !!accessToken,
     retry: false,
+    staleTime: 1000 * 60 * 5,
   });
 
   return {
     ...query,
     hasAccessToken: !!accessToken,
-    isCheckingToken: false,
   };
 }
 
@@ -105,14 +100,6 @@ export function useAccessToken() {
     subscribeToAuthStorage,
     getStoredAccessToken,
     () => null
-  );
-}
-
-export function useHasHydrated() {
-  return useSyncExternalStore(
-    subscribeToHydration,
-    () => true,
-    () => false
   );
 }
 

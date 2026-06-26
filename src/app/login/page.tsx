@@ -4,9 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLogin } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
+import { getAuthUser } from "@/services/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+
   const loginMutation = useLogin();
   const login = useAuthStore((state) => state.login);
 
@@ -16,13 +20,27 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const data = await loginMutation.mutateAsync({
-      username,
-      password,
-    });
+    try {
+      const tokens = await loginMutation.mutateAsync({
+        username,
+        password,
+      });
 
-    login(data);
-    router.push("/");
+      localStorage.setItem("accessToken", tokens.accessToken);
+      localStorage.setItem("refreshToken", tokens.refreshToken);
+
+      await queryClient.invalidateQueries({
+        queryKey: ["auth-user"],
+      });
+
+      const user = await getAuthUser();
+
+      login(user, tokens);
+
+      router.push("/");
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
   };
 
   return (
@@ -32,7 +50,10 @@ export default function LoginPage() {
         className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm border"
       >
         <h1 className="text-3xl font-bold text-gray-900">SmartCart AI</h1>
-        <p className="mt-2 text-gray-500">Login to continue shopping smarter.</p>
+
+        <p className="mt-2 text-gray-500">
+          Login to continue shopping smarter.
+        </p>
 
         <div className="mt-6 space-y-4">
           <input
@@ -59,7 +80,9 @@ export default function LoginPage() {
           </button>
 
           {loginMutation.isError && (
-            <p className="text-sm text-red-500">Login failed. Check username/password.</p>
+            <p className="text-sm text-red-500">
+              Login failed. Check username/password.
+            </p>
           )}
         </div>
       </form>

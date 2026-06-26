@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAccessToken, useHasHydrated } from "@/hooks/useAuth";
+import { useAccessToken } from "@/hooks/useAuth";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,15 +13,14 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const router = useRouter();
   const accessToken = useAccessToken();
-  const hasHydrated = useHasHydrated();
 
   useEffect(() => {
-    if (hasHydrated && !accessToken) {
+    if (!accessToken) {
       router.replace("/login");
     }
-  }, [accessToken, hasHydrated, router]);
+  }, [accessToken, router]);
 
-  if (!hasHydrated || !accessToken) {
+  if (!accessToken) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         Loading...
