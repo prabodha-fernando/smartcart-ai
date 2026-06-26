@@ -35,49 +35,40 @@ privateApi.interceptors.request.use(
 // RESPONSE INTERCEPTOR
 privateApi.interceptors.response.use(
   (response) => response,
-
   async (error) => {
     const originalRequest = error.config;
 
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry
-    ) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken =
-          localStorage.getItem("refreshToken");
+        const refreshToken = localStorage.getItem("refreshToken");
 
         if (!refreshToken) {
           throw new Error("No refresh token found");
         }
 
-        const response = await publicApi.post(
-          "/auth/refresh",
-          {
-            refreshToken,
-            expiresInMins: 30,
-          }
-        );
+        const response = await publicApi.post("/auth/refresh", {
+          refreshToken,
+          expiresInMins: 30,
+        });
 
-        const newAccessToken =
-          response.data.accessToken;
+        const newAccessToken = response.data.accessToken;
+        const newRefreshToken = response.data.refreshToken;
 
-        localStorage.setItem(
-          "accessToken",
-          newAccessToken
-        );
+        localStorage.setItem("accessToken", newAccessToken);
+        localStorage.setItem("refreshToken", newRefreshToken);
 
-        originalRequest.headers.Authorization =
-          `Bearer ${newAccessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
         return privateApi(originalRequest);
       } catch (refreshError) {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
 
-        window.location.href = "/login";
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
 
         return Promise.reject(refreshError);
       }
