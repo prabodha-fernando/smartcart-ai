@@ -5,6 +5,8 @@ import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Product } from "@/types/product";
+import ProductSkeleton from "@/components/products/ProductSkeleton";
+import ErrorMessage from "@/components/ui/ErrorMessage";
 
 export default function HomePage() {
   const { data, isLoading, isError } = useProducts();
@@ -41,10 +43,22 @@ export default function HomePage() {
             Trending Products
           </h2>
 
-          {isLoading && <p className="mt-6">Loading products...</p>}
+          {isLoading && (
+            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <ProductSkeleton key={index} />
+              ))}
+            </div>
+          )}
 
-          {isError && (
-            <p className="mt-6 text-red-500">Failed to load products.</p>
+          {isError && <ErrorMessage message="Failed to load trending products." />}
+
+          {!isLoading && !isError && (
+            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {data?.products?.slice(0, 8).map((product: Product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
           )}
 
           <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
