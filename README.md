@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SmartCart AI
 
-## Getting Started
+AI-powered shopping assistant built with Next.js, TypeScript, TanStack Query, Zustand, and DummyJSON APIs.
 
-First, run the development server:
+## Tech Stack
+
+- Next.js 16 (App Router)
+- TypeScript
+- Tailwind CSS
+- TanStack Query
+- Zustand
+- Axios
+- DummyJSON API
+
+## Features
+
+### Authentication
+- Login
+- Persistent sessions
+- Refresh tokens
+- Protected routes
+
+### Products
+- Product listing
+- Product details
+- Search
+- Category filtering
+
+### Favorites
+- Add/remove favorites
+- Persistent state
+- Empty states
+
+### AI Assistant
+- Smart product recommendations
+- Budget suggestions
+- Best-rated product suggestions
+
+### UX Improvements
+- Loading skeletons
+- Error handling
+- Responsive navigation
+- Mobile-friendly UI
+
+## Installation
 
 ```bash
+git clone <repository-url>
+
+cd smartcart-ai
+
+npm install
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+NEXT_PUBLIC_BASE_URL=https://dummyjson.com
+```
 
-## Learn More
+## API Endpoints
 
-To learn more about Next.js, take a look at the following resources:
+```text
+POST /auth/login
+GET /auth/me
+POST /auth/refresh
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+GET /products
+GET /products/:id
+GET /products/search
+GET /products/categories
+GET /products/category/:slug
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Branch Strategy
 
-## Deploy on Vercel
+```text
+main
+│
+└── dev
+    │
+    ├── feature/auth
+    ├── feature/products
+    ├── feature/search
+    ├── feature/favorites
+    ├── feature/profile
+    ├── feature/ai-integration
+    └── feature/persistent-auth
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Demo User
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+Username: emilys
+Password: emilyspass
+```
