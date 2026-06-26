@@ -6,6 +6,7 @@ import CategoryFilter from "@/components/products/CategoryFilter";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ProductSkeleton from "@/components/products/ProductSkeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
+import EmptyState from "@/components/ui/EmptyState";
 import {
   useProducts,
   useSearchProducts,
@@ -65,9 +66,16 @@ export default function ProductsPage() {
 
           {isError && <ErrorMessage message="Failed to load products." />}
 
-          {!isLoading && !isError && (
+          {!isLoading && !isError && products?.length === 0 && (
+            <EmptyState
+              title="No products found"
+              description="Try changing your search keyword or category filter."
+            />
+          )}
+
+          {!isLoading && !isError && products && products.length > 0 && (
             <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {products?.map((product: Product) => (
+              {products.map((product: Product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
