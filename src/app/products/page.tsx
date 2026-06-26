@@ -19,8 +19,11 @@ import { Product } from "@/types/product";
 export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [page, setPage] = useState(1);
+  const limit = 12;
+  const skip = (page - 1) * limit;
 
-  const { data: allProducts, isLoading, isError } = useProducts();
+  const { data: allProducts, isLoading, isError } = useProducts(limit, skip);
   const { data: categories } = useCategories();
   const { data: categoryProducts } = useProductsByCategory(selectedCategory);
   const { data: searchResults } = useSearchProducts(search);
@@ -31,6 +34,8 @@ export default function ProductsPage() {
       : selectedCategory
       ? categoryProducts?.products
       : allProducts?.products;
+
+  const totalPages = allProducts ? Math.ceil(allProducts.total / limit) : 1;
 
   return (
     <ProtectedRoute>
@@ -45,7 +50,10 @@ export default function ProductsPage() {
               type="text"
               placeholder="Search products..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               className="w-full rounded-xl border px-4 py-3"
             />
           </div>
@@ -53,7 +61,10 @@ export default function ProductsPage() {
           <CategoryFilter
             categories={categories || []}
             selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
+            onSelectCategory={(category) => {
+              setSelectedCategory(category);
+              setPage(1);
+            }}
           />
 
           {isLoading && (
@@ -78,6 +89,30 @@ export default function ProductsPage() {
               {products.map((product: Product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
+            </div>
+          )}
+
+          {!isLoading && !isError && !search && !selectedCategory && (
+            <div className="mt-8 flex items-center justify-center gap-4">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((prev) => prev - 1)}
+                className="rounded-xl border bg-white px-4 py-2 disabled:opacity-50"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm font-medium">
+                Page {page} of {totalPages}
+              </span>
+
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage((prev) => prev + 1)}
+                className="rounded-xl border bg-white px-4 py-2 disabled:opacity-50"
+              >
+                Next
+              </button>
             </div>
           )}
         </section>

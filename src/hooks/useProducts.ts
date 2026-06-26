@@ -7,10 +7,10 @@ import {
   getProductsByCategory,
 } from "@/services/api";
 
-export function useProducts() {
+export function useProducts(limit: number = 12, skip: number = 0) {
   return useQuery({
-    queryKey: ["products"],
-    queryFn: getProducts,
+    queryKey: ["products", limit, skip],
+    queryFn: () => getProducts(limit, skip),
   });
 }
 

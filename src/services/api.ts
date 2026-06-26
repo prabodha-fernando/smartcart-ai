@@ -36,8 +36,13 @@ export async function refreshAccessToken(
 }
 
 // PRODUCTS
-export async function getProducts(): Promise<ProductsResponse> {
-  const response = await publicApi.get("/products");
+export async function getProducts(
+  limit: number = 12,
+  skip: number = 0
+): Promise<ProductsResponse> {
+  const response = await publicApi.get(
+    `/products?limit=${limit}&skip=${skip}`
+  );
 
   return response.data;
 }

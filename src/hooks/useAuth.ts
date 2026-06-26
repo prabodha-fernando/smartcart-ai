@@ -30,32 +30,38 @@ function isExpiredJwt(token: string) {
   }
 }
 
-function notifyAuthStorageChanged() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("auth-storage"));
-  }
-}
-
 function getStoredAccessToken() {
   if (typeof window === "undefined") return null;
 
   const accessToken = localStorage.getItem("accessToken");
 
   if (accessToken && isExpiredJwt(accessToken)) {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-
-    notifyAuthStorageChanged();
-
     return null;
   }
 
   return accessToken;
 }
 
+function clearExpiredAuthToken() {
+  const accessToken = localStorage.getItem("accessToken");
+
+  if (!accessToken || !isExpiredJwt(accessToken)) {
+    return false;
+  }
+
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+
+  return true;
+}
+
 function subscribeToAuthStorage(onStoreChange: () => void) {
   if (typeof window === "undefined") return () => {};
+
+  if (clearExpiredAuthToken()) {
+    window.queueMicrotask(onStoreChange);
+  }
 
   window.addEventListener("storage", onStoreChange);
   window.addEventListener("auth-storage", onStoreChange);
