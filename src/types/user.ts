@@ -46,12 +46,3 @@ export interface UsersResponse {
   skip: number;
   limit: number;
 }
-
-export interface CreateAccountPayload {
-  firstName: string;
-  lastName: string;
-  email: string;
-  username: string;
-  password: string;
-  age: number;
-}
