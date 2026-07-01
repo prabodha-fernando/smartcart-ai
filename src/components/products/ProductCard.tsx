@@ -21,28 +21,28 @@ export default function ProductCard({
   };
 
   return (
-    <article className="group premium-card h-full p-6 transition hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+    <article className="group relative flex h-full flex-col rounded-[20px] border border-transparent bg-[#f9fafb] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] first:border-teal-700">
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative h-56 w-full overflow-hidden rounded-xl bg-white">
+        <div className="relative mb-6 h-48 w-full overflow-hidden rounded-xl bg-white">
           <Image
             src={product.thumbnail}
             alt={product.title}
             fill
-            priority={priority}
+            loading={priority ? "eager" : "lazy"}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
             className="object-contain"
           />
         </div>
 
-        <div className="mt-5 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-emerald-700 label-caps">
-          AI Pick
+        <div className="mb-3 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-emerald-600 label-caps">
+          In Stock
         </div>
 
-        <h3 className="mt-3 line-clamp-2 font-display text-2xl font-semibold leading-tight text-slate-950">
+        <h3 className="line-clamp-2 font-display text-2xl font-semibold leading-tight text-slate-950">
           {product.title}
         </h3>
 
-        <p className="mt-2 line-clamp-2 text-base leading-7 text-slate-500">
+        <p className="mt-2 line-clamp-2 text-base leading-6 text-slate-500">
           AI-curated product match with a {product.rating.toFixed(1)} customer
           rating.
         </p>

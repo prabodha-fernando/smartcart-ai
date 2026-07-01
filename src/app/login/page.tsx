@@ -77,6 +77,10 @@ export default function LoginPage() {
         loginMutation.mutateAsync(normalizedCredentials),
         6000
       );
+      useAuthStore.getState().setTokens(
+        tokens.accessToken,
+        tokens.refreshToken
+      );
       const user = await getUserForTokens(tokens);
 
       signInUser(user, tokens);
@@ -536,8 +540,7 @@ function buildLocalTokensFromUser(user: AuthUser): LoginResponse {
 async function getUserForTokens(tokens: LoginResponse): Promise<AuthUser> {
   try {
     return await withTimeout(getAuthUser(), 5000);
-  } catch (error) {
-    console.warn("Using login response profile:", error);
+  } catch {
     return buildUserFromLoginResponse(tokens);
   }
 }

@@ -56,7 +56,7 @@ export default function ProductDetailsPage() {
     <main className="min-h-screen bg-white">
       <Navbar />
 
-      <section className="app-container py-10 text-sm text-slate-500">
+      <section className="app-container py-8 text-sm text-slate-500">
         Home <span className="mx-3">›</span> {product.category}{" "}
         <span className="mx-3">›</span>
         <span className="text-slate-950">{product.title}</span>
@@ -64,11 +64,11 @@ export default function ProductDetailsPage() {
 
       <section className="app-container grid gap-14 pb-16 lg:grid-cols-2">
         <div>
-          <div className="relative rounded-[1.5rem] bg-slate-50 p-8">
+          <div className="relative overflow-hidden rounded-[20px] bg-slate-50 p-8">
             <span className="absolute left-8 top-6 z-10 rounded-full bg-emerald-50 px-4 py-2 text-emerald-700 label-caps">
               New Release
             </span>
-          <div className="relative h-96 w-full overflow-hidden rounded-2xl bg-gray-50">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gray-50">
             <Image
               src={product.thumbnail}
               alt={product.title}
@@ -84,7 +84,7 @@ export default function ProductDetailsPage() {
             {product.images?.map((image) => (
               <div
                 key={image}
-                className="relative h-24 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                className="relative h-24 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 first:border-2 first:border-blue-700"
               >
                 <Image
                   src={image}
@@ -103,7 +103,7 @@ export default function ProductDetailsPage() {
             {product.category}
           </p>
 
-          <h1 className="mt-4 font-display text-3xl font-semibold leading-tight text-slate-950 md:text-4xl">
+          <h1 className="mt-4 font-display text-3xl font-semibold leading-tight text-slate-950 md:text-[42px]">
             {product.title}
           </h1>
 
@@ -116,12 +116,12 @@ export default function ProductDetailsPage() {
             </span>
           </div>
 
-          <div className="mt-6 flex items-center gap-4">
+          <div className="mt-6 flex flex-wrap items-baseline gap-x-4 gap-y-3">
             <span className="font-display text-4xl font-bold text-slate-950 md:text-5xl">
               ${product.price.toFixed(2)}
             </span>
 
-            <span className="text-xl text-slate-400 line-through">
+            <span className="text-lg text-slate-400 line-through md:text-xl">
               ${(product.price * 1.12).toFixed(2)}
             </span>
             <span className="rounded-md bg-red-50 px-3 py-1 text-sm font-medium text-red-500">

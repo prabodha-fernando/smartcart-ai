@@ -15,13 +15,29 @@ import {
   useProductsByCategory,
   useLimitedProducts,
 } from "@/hooks/useProducts";
-import { useState } from "react";
-import { Bot, ChevronLeft, ChevronRight } from "lucide-react";
+import { Suspense, useState } from "react";
+import { Bot, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { LimitedProduct } from "@/types/product";
+import { useSearchParams } from "next/navigation";
 
 export default function ProductsPage() {
-  const [search, setSearch] = useState("");
+  return (
+    <Suspense fallback={<ProductsLoading />}>
+      <ProductsContent />
+    </Suspense>
+  );
+}
+
+function ProductsContent() {
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") ?? "";
+
+  return <ProductsState key={searchQuery} initialSearch={searchQuery} />;
+}
+
+function ProductsState({ initialSearch }: { initialSearch: string }) {
+  const [search, setSearch] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [sortBy, setSortBy] = useState<"featured" | "price" | "rating">(
     "featured"
@@ -52,10 +68,10 @@ export default function ProductsPage() {
       <main className="min-h-screen bg-white">
         <Navbar />
 
-        <section className="app-container py-16">
+        <section className="app-container py-16 md:py-20">
           <div className="flex flex-col gap-8">
             <div>
-              <h1 className="font-display text-4xl font-bold text-slate-950 md:text-5xl">
+              <h1 className="font-display text-5xl font-bold leading-tight text-slate-950 md:text-6xl">
                 Explore Products
               </h1>
               <p className="mt-4 text-xl text-slate-500">
@@ -80,7 +96,15 @@ export default function ProductsPage() {
                 </button>
 
                 <CategoryFilter
-                  categories={categories?.slice(0, 4) || []}
+                  categories={
+                    categories?.filter((category) =>
+                      [
+                        "laptops",
+                        "smartphones",
+                        "mobile-accessories",
+                      ].includes(category.slug)
+                    ) || []
+                  }
                   selectedCategory={selectedCategory}
                   onSelectCategory={(category) => {
                     setSelectedCategory(category);
@@ -99,26 +123,28 @@ export default function ProductsPage() {
                         current === value ? "featured" : (value as typeof sortBy)
                       )
                     }
-                    className={`rounded-full px-6 py-3 text-base font-medium ${
+                    className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-base font-medium ${
                       sortBy === value
                         ? "bg-blue-700 text-white"
                         : "bg-slate-50 text-slate-950"
                     }`}
                   >
-                    {label}⌄
+                    {label}
+                    <ChevronDown size={16} />
                   </button>
                 ))}
               </div>
 
-              <div className="flex items-center gap-4 text-base text-slate-500">
+              <div className="flex items-center gap-4 text-lg text-slate-500">
                 Sort by:
-                <span className="font-medium text-slate-900 capitalize">
-                  {sortBy}⌄
+                <span className="inline-flex items-center gap-8 font-medium text-slate-900 capitalize">
+                  {sortBy}
+                  <ChevronDown size={18} />
                 </span>
               </div>
             </div>
 
-            <div className="max-w-xl rounded-full bg-slate-50 px-5 py-3">
+            <div className="max-w-xl rounded-[20px] bg-slate-50 px-5 py-3 lg:hidden">
               <input
                 type="text"
                 placeholder="Search products..."
@@ -155,14 +181,14 @@ export default function ProductsPage() {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  priority={index === 0}
+                  priority={index < 4}
                 />
               ))}
             </div>
           )}
 
           {!isLoading && !isError && !debouncedSearch && !selectedCategory && (
-            <div className="mt-20 flex items-center justify-center gap-5">
+            <div className="mt-24 flex items-center justify-center gap-5 text-lg">
               <button
                 disabled={page === 1}
                 onClick={() => setPage((prev) => prev - 1)}
@@ -175,8 +201,19 @@ export default function ProductsPage() {
               <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-blue-700 font-semibold text-white">
                 {page}
               </span>
-              <span className="font-medium">of</span>
-              <span className="font-medium">{totalPages}</span>
+              {page < totalPages && (
+                <>
+                  <button
+                    onClick={() => setPage(2)}
+                    className="inline-flex h-12 w-12 items-center justify-center rounded-full"
+                  >
+                    2
+                  </button>
+                  <span>3</span>
+                  <span>...</span>
+                  <span>{totalPages}</span>
+                </>
+              )}
 
               <button
                 disabled={page === totalPages}
@@ -225,4 +262,17 @@ function sortProducts<T extends LimitedProduct>(
   }
 
   return products;
+}
+
+function ProductsLoading() {
+  return (
+    <ProtectedRoute>
+      <main className="min-h-screen bg-white">
+        <Navbar />
+        <section className="app-container py-16">
+          <ProductSkeleton />
+        </section>
+      </main>
+    </ProtectedRoute>
+  );
 }

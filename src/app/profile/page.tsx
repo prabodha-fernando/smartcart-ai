@@ -33,8 +33,8 @@ export default function ProfilePage() {
 
         {user && (
           <>
-            <section className="bg-slate-50 py-20">
-              <div className="app-container flex flex-col gap-10 md:flex-row md:items-center">
+            <section className="bg-slate-50 py-20 md:py-28">
+              <div className="app-container flex flex-col gap-10 md:flex-row md:items-end">
                 <div className="relative h-56 w-56 overflow-hidden rounded-full border-8 border-white bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
                   <Image
                     src={user.image}
@@ -51,7 +51,7 @@ export default function ProfilePage() {
                   </button>
                 </div>
 
-                <div>
+                <div className="pb-4">
                   <span className="rounded-full bg-blue-100 px-4 py-2 text-blue-700 label-caps">
                     Premium Member
                   </span>
@@ -154,7 +154,7 @@ function Panel({
 }) {
   return (
     <div
-      className={`rounded-[1.5rem] bg-slate-50 p-9 ${
+      className={`rounded-[20px] bg-slate-50 p-9 transition hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(0,0,0,0.06)] ${
         highlighted ? "border border-teal-200" : ""
       }`}
     >

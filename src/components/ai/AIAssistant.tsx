@@ -14,28 +14,28 @@ export default function AIAssistant() {
   };
 
   return (
-    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-8 shadow-[0_16px_50px_rgba(15,23,42,0.06)]">
+    <div className="min-w-0 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-[0_16px_50px_rgba(15,23,42,0.06)] md:p-8">
       <div className="mx-auto mb-8 flex w-fit items-center gap-2 rounded-full bg-teal-700 px-4 py-1.5 text-white label-caps">
         <Sparkles size={14} />
         AI Assistant
       </div>
 
-      <h2 className="text-center font-display text-3xl font-semibold text-slate-950">
+      <h2 className="text-center font-display text-2xl font-semibold text-slate-950 md:text-3xl">
         What&apos;s on your mind?
       </h2>
 
-      <div className="mx-auto mt-6 flex max-w-3xl items-center rounded-full border border-slate-300 bg-white p-2 shadow-sm">
+      <div className="mx-auto mt-6 flex max-w-3xl flex-col gap-2 rounded-3xl border border-slate-300 bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:rounded-full">
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="What should I buy for university?"
-          className="min-w-0 flex-1 bg-transparent px-5 font-mono text-sm outline-none"
+          className="min-w-0 flex-1 bg-transparent px-4 py-2 font-mono text-sm outline-none sm:px-5 sm:py-0"
         />
 
         <button
           onClick={handleAsk}
           disabled={aiMutation.isPending}
-          className="primary-pill inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold"
+          className="primary-pill inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold"
         >
           {aiMutation.isPending ? "Thinking..." : "Ask AI"}
           <Send size={16} />
