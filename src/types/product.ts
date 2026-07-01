@@ -51,9 +51,31 @@ export interface ProductCategory {
   url: string;
 }
 
+export interface LimitedProduct {
+  id: number;
+  title: string;
+  price: number;
+  rating: number;
+  thumbnail: string;
+}
+
 export interface ProductsResponse {
   products: Product[];
   total: number;
   skip: number;
   limit: number;
+}
+
+export interface LimitedProductsResponse {
+  products: LimitedProduct[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
+export interface AIProductQuery {
+  category: string | null;
+  maxPrice: number | null;
+  minRating: number | null;
+  keywords: string[];
 }

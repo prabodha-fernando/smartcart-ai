@@ -1,53 +1,71 @@
 import { create } from "zustand";
-import { LoginResponse } from "@/types/user";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { LoginResponse, User } from "@/types/user";
 
 interface AuthState {
-  user: LoginResponse | null;
+  user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
-  login: (data: LoginResponse) => void;
+  hasHydrated: boolean;
+
+  login: (user: User, tokens: LoginResponse) => void;
+  setTokens: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
 }
 
 function notifyAuthStorageChanged() {
-  window.dispatchEvent(new Event("auth-storage"));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("auth-storage"));
+  }
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  accessToken: null,
-  refreshToken: null,
-
-  login: (data) => {
-    localStorage.setItem(
-      "accessToken",
-      data.accessToken
-    );
-
-    localStorage.setItem(
-      "refreshToken",
-      data.refreshToken
-    );
-
-    notifyAuthStorageChanged();
-
-    set({
-      user: data,
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-    });
-  },
-
-  logout: () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-
-    notifyAuthStorageChanged();
-
-    set({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
-    });
-  },
-}));
+      hasHydrated: false,
+
+      login: (user, tokens) => {
+        set({
+          user,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        });
+        notifyAuthStorageChanged();
+      },
+
+      setTokens: (accessToken, refreshToken) => {
+        set({ accessToken, refreshToken });
+        notifyAuthStorageChanged();
+      },
+
+      logout: () => {
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+        });
+        notifyAuthStorageChanged();
+      },
+
+      setHasHydrated: (hasHydrated) => {
+        set({ hasHydrated });
+      },
+    }),
+    {
+      name: "smartcart-auth",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
+  )
+);

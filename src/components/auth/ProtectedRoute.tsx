@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAccessToken, useHasHydrated } from "@/hooks/useAuth";
+import { useAccessToken } from "@/hooks/useAuth";
+import { useAuthStore } from "@/store/authStore";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,7 +14,7 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const router = useRouter();
   const accessToken = useAccessToken();
-  const hasHydrated = useHasHydrated();
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
 
   useEffect(() => {
     if (hasHydrated && !accessToken) {

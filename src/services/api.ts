@@ -1,6 +1,16 @@
-import { publicApi, privateApi  } from "@/lib/axios";
-import { LoginResponse, User } from "@/types/user";
-import { Product, ProductCategory, ProductsResponse } from "@/types/product";
+import { publicApi, privateApi } from "@/lib/axios";
+import {
+  CreateAccountPayload,
+  LoginResponse,
+  User,
+  UsersResponse,
+} from "@/types/user";
+import {
+  LimitedProductsResponse,
+  Product,
+  ProductCategory,
+  ProductsResponse,
+} from "@/types/product";
 
 // LOGIN (PUBLIC)
 export async function loginUser(
@@ -23,6 +33,20 @@ export async function getAuthUser(): Promise<User> {
   return response.data;
 }
 
+export async function getAuthUsers(): Promise<UsersResponse> {
+  const response = await publicApi.get("/users");
+
+  return response.data;
+}
+
+export async function createAuthUser(
+  payload: CreateAccountPayload
+): Promise<User> {
+  const response = await publicApi.post("/users/add", payload);
+
+  return response.data;
+}
+
 // REFRESH TOKEN
 export async function refreshAccessToken(
   refreshToken: string
@@ -36,8 +60,13 @@ export async function refreshAccessToken(
 }
 
 // PRODUCTS
-export async function getProducts(): Promise<ProductsResponse> {
-  const response = await publicApi.get("/products");
+export async function getProducts(
+  limit: number = 12,
+  skip: number = 0
+): Promise<ProductsResponse> {
+  const response = await publicApi.get(
+    `/products?limit=${limit}&skip=${skip}`
+  );
 
   return response.data;
 }
@@ -53,7 +82,9 @@ export async function getProductById(
 export async function searchProducts(
   query: string
 ): Promise<ProductsResponse> {
-  const response = await publicApi.get(`/products/search?q=${query}`);
+  const response = await publicApi.get(
+    `/products/search?q=${encodeURIComponent(query)}`
+  );
 
   return response.data;
 }
@@ -68,6 +99,17 @@ export async function getProductsByCategory(
   category: string
 ): Promise<ProductsResponse> {
   const response = await publicApi.get(`/products/category/${category}`);
+
+  return response.data;
+}
+
+export async function getLimitedProducts(
+  limit: number,
+  skip: number
+): Promise<LimitedProductsResponse> {
+  const response = await publicApi.get(
+    `/products?limit=${limit}&skip=${skip}&select=title,price,rating,thumbnail`
+  );
 
   return response.data;
 }

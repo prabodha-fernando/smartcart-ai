@@ -1,75 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useSyncExternalStore } from "react";
 import {
+  createAuthUser,
+  getAuthUsers,
   getAuthUser,
   loginUser,
   refreshAccessToken,
 } from "@/services/api";
-
-function getStoredAccessToken() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const accessToken = localStorage.getItem("accessToken");
-
-  if (accessToken && isExpiredJwt(accessToken)) {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    return null;
-  }
-
-  return accessToken;
-}
-
-function isExpiredJwt(token: string) {
-  const [, payload] = token.split(".");
-
-  if (!payload) {
-    return true;
-  }
-
-  try {
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const paddedBase64 = base64.padEnd(
-      base64.length + ((4 - (base64.length % 4)) % 4),
-      "="
-    );
-    const decodedPayload = JSON.parse(atob(paddedBase64));
-
-    if (typeof decodedPayload.exp !== "number") {
-      return false;
-    }
-
-    return decodedPayload.exp * 1000 <= Date.now();
-  } catch {
-    return true;
-  }
-}
-
-function subscribeToAuthStorage(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  window.addEventListener("storage", onStoreChange);
-  window.addEventListener("auth-storage", onStoreChange);
-
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener("auth-storage", onStoreChange);
-  };
-}
-
-function subscribeToHydration(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  const frameId = window.requestAnimationFrame(onStoreChange);
-
-  return () => window.cancelAnimationFrame(frameId);
-}
+import { useAuthStore } from "@/store/authStore";
 
 export function useLogin() {
   return useMutation({
@@ -83,37 +20,42 @@ export function useLogin() {
   });
 }
 
+export function useCreateAccount() {
+  return useMutation({
+    mutationFn: createAuthUser,
+  });
+}
+
 export function useAuthUser() {
   const accessToken = useAccessToken();
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const storedUser = useAuthStore((state) => state.user);
 
   const query = useQuery({
     queryKey: ["auth-user"],
     queryFn: getAuthUser,
-    enabled: !!accessToken,
+    enabled: hasHydrated && !!accessToken && !storedUser,
+    initialData: storedUser ?? undefined,
     retry: false,
+    staleTime: 1000 * 60 * 5,
   });
 
   return {
     ...query,
     hasAccessToken: !!accessToken,
-    isCheckingToken: false,
   };
 }
 
 export function useAccessToken() {
-  return useSyncExternalStore(
-    subscribeToAuthStorage,
-    getStoredAccessToken,
-    () => null
-  );
+  return useAuthStore((state) => state.accessToken);
 }
 
-export function useHasHydrated() {
-  return useSyncExternalStore(
-    subscribeToHydration,
-    () => true,
-    () => false
-  );
+export function useAuthUsers() {
+  return useQuery({
+    queryKey: ["auth-users"],
+    queryFn: getAuthUsers,
+    staleTime: 1000 * 60 * 5,
+  });
 }
 
 export function useRefreshToken() {
