@@ -73,6 +73,7 @@ export default function ProductDetailsPage() {
               src={product.thumbnail}
               alt={product.title}
               fill
+              loading="eager"
               sizes="(min-width: 1024px) 50vw, 100vw"
               className="object-contain"
             />

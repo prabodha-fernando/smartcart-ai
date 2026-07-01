@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  createAuthUser,
   getAuthUsers,
   getAuthUser,
   loginUser,
@@ -19,14 +20,22 @@ export function useLogin() {
   });
 }
 
+export function useCreateAccount() {
+  return useMutation({
+    mutationFn: createAuthUser,
+  });
+}
+
 export function useAuthUser() {
   const accessToken = useAccessToken();
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const storedUser = useAuthStore((state) => state.user);
 
   const query = useQuery({
     queryKey: ["auth-user"],
     queryFn: getAuthUser,
-    enabled: hasHydrated && !!accessToken,
+    enabled: hasHydrated && !!accessToken && !storedUser,
+    initialData: storedUser ?? undefined,
     retry: false,
     staleTime: 1000 * 60 * 5,
   });

@@ -1,5 +1,10 @@
 import { publicApi, privateApi } from "@/lib/axios";
-import { LoginResponse, User, UsersResponse } from "@/types/user";
+import {
+  CreateAccountPayload,
+  LoginResponse,
+  User,
+  UsersResponse,
+} from "@/types/user";
 import {
   LimitedProductsResponse,
   Product,
@@ -30,6 +35,14 @@ export async function getAuthUser(): Promise<User> {
 
 export async function getAuthUsers(): Promise<UsersResponse> {
   const response = await publicApi.get("/users");
+
+  return response.data;
+}
+
+export async function createAuthUser(
+  payload: CreateAccountPayload
+): Promise<User> {
+  const response = await publicApi.post("/users/add", payload);
 
   return response.data;
 }

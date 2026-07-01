@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useLogin } from "@/hooks/useAuth";
+import { useCreateAccount, useLogin } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
 import { getAuthUser } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,47 +12,94 @@ import {
   Eye,
   EyeOff,
   Lock,
+  Mail,
   ShoppingCart,
   User,
   CheckCircle2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  CreateAccountPayload,
+  LoginResponse,
+  User as AuthUser,
+} from "@/types/user";
+
+const LOCAL_ACCOUNTS_KEY = "smartcart-local-accounts";
+const DEMO_CREDENTIALS = {
+  username: "emilys",
+  password: "emilyspass",
+};
+
+interface LocalAccount {
+  username: string;
+  email: string;
+  password: string;
+  user: AuthUser;
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const loginMutation = useLogin();
+  const createAccountMutation = useCreateAccount();
   const login = useAuthStore((state) => state.login);
 
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [username, setUsername] = useState("emilys");
   const [password, setPassword] = useState("emilyspass");
   const [showPassword, setShowPassword] = useState(false);
+  const [signup, setSignup] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    username: "",
+    password: "",
+    confirmPassword: "",
+  });
 
   const submitLogin = async (credentials = { username, password }) => {
+    const normalizedCredentials = {
+      username: credentials.username.trim(),
+      password: credentials.password,
+    };
+    const localAccount = findLocalAccount(normalizedCredentials);
+
+    if (localAccount) {
+      signInUser(localAccount.user, buildLocalTokensFromUser(localAccount.user));
+      toast.success("Signed in with your SmartCart account.");
+      router.push("/");
+      return;
+    }
+
     try {
-      const tokens = await loginMutation.mutateAsync({
-        username: credentials.username,
-        password: credentials.password,
-      });
-
-      useAuthStore.getState().setTokens(
-        tokens.accessToken,
-        tokens.refreshToken
+      const tokens = await withTimeout(
+        loginMutation.mutateAsync(normalizedCredentials),
+        6000
       );
+      const user = await getUserForTokens(tokens);
 
-      await queryClient.invalidateQueries({
-        queryKey: ["auth-user"],
-      });
-
-      const user = await getAuthUser();
-
-      login(user, tokens);
-
+      signInUser(user, tokens);
       router.push("/");
     } catch (error) {
-      console.error("Login failed:", error);
+      console.warn("Remote login failed:", error);
+
+      if (isDemoCredentials(normalizedCredentials)) {
+        const user = buildDemoUser();
+
+        signInUser(user, buildLocalTokensFromUser(user));
+        toast.success("Signed in with demo account.");
+        router.push("/");
+        return;
+      }
+
+      toast.error("Login failed. Check username/password.");
     }
+  };
+
+  const signInUser = (user: AuthUser, tokens: LoginResponse) => {
+    login(user, tokens);
+    queryClient.setQueryData(["auth-user"], user);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -64,6 +111,87 @@ export default function LoginPage() {
     setUsername("emilys");
     setPassword("emilyspass");
     await submitLogin({ username: "emilys", password: "emilyspass" });
+  };
+
+  const updateSignup = (field: keyof typeof signup, value: string) => {
+    setSignup((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const firstName = signup.firstName.trim();
+    const lastName = signup.lastName.trim();
+    const email = signup.email.trim();
+    const signupUsername = signup.username.trim();
+    const signupPassword = signup.password;
+
+    if (!firstName || !lastName || !email || !signupUsername) {
+      toast.error("Please fill in all account details.");
+      return;
+    }
+
+    if (!email.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    if (signupPassword.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (signupPassword !== signup.confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    const payload: CreateAccountPayload = {
+      firstName,
+      lastName,
+      email,
+      username: signupUsername,
+      password: signupPassword,
+      age: 25,
+    };
+
+    try {
+      let createdUser = buildSignupUser({ id: Date.now() } as AuthUser, payload);
+
+      try {
+        const apiUser = await withTimeout(
+          createAccountMutation.mutateAsync(payload),
+          3500
+        );
+        createdUser = buildSignupUser(apiUser, payload);
+      } catch (createError) {
+        console.warn("Using local signup profile:", createError);
+      }
+
+      const user = buildSignupUser(createdUser, payload);
+
+      saveLocalAccount({
+        username: payload.username,
+        email: payload.email,
+        password: payload.password,
+        user,
+      });
+      setUsername(payload.username);
+      setPassword(payload.password);
+      setSignup({
+        firstName: "",
+        lastName: "",
+        email: "",
+        username: "",
+        password: "",
+        confirmPassword: "",
+      });
+      setAuthMode("login");
+      toast.success("Account created. Sign in with your new account.");
+    } catch (error) {
+      console.error("Create account failed:", error);
+      toast.error("Could not create account. Please try again.");
+    }
   };
 
   return (
@@ -133,53 +261,90 @@ export default function LoginPage() {
 
         <section className="flex flex-1 items-center justify-center bg-white p-8">
           <form
-            onSubmit={handleLogin}
+            onSubmit={authMode === "login" ? handleLogin : handleCreateAccount}
             className="w-full max-w-[440px] rounded-[20px] border border-slate-200 bg-slate-50 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)] transition-all duration-300"
           >
             <header className="mb-8">
               <h2 className="font-display text-[32px] font-semibold leading-tight">
-                Welcome Back
+                {authMode === "login" ? "Welcome Back" : "Create Account"}
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Please enter your details to access your cart.
+                {authMode === "login"
+                  ? "Please enter your details to access your cart."
+                  : "Create your account, then sign in to continue."}
               </p>
             </header>
 
             <div className="space-y-4">
-              <label className="block space-y-2">
-                <span className="px-1 text-[13px] font-medium text-slate-800">
-                  Username or Email
-                </span>
-                <span className="flex h-14 items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 text-slate-500 transition focus-within:border-blue-700 focus-within:ring-2 focus-within:ring-blue-700/20">
-                  <User size={22} />
-                  <input
-                    className="w-full bg-transparent text-base outline-none placeholder:text-slate-400"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="name@example.com"
+              {authMode === "signup" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <TextField
+                    label="First Name"
+                    value={signup.firstName}
+                    onChange={(value) => updateSignup("firstName", value)}
+                    placeholder="Jane"
+                    icon={<User size={22} />}
                   />
-                </span>
-              </label>
+                  <TextField
+                    label="Last Name"
+                    value={signup.lastName}
+                    onChange={(value) => updateSignup("lastName", value)}
+                    placeholder="Cooper"
+                    icon={<User size={22} />}
+                  />
+                </div>
+              )}
+
+              {authMode === "signup" && (
+                <TextField
+                  label="Email"
+                  value={signup.email}
+                  onChange={(value) => updateSignup("email", value)}
+                  placeholder="name@example.com"
+                  icon={<Mail size={22} />}
+                  type="email"
+                />
+              )}
+
+              <TextField
+                label="Username or Email"
+                value={authMode === "login" ? username : signup.username}
+                onChange={(value) =>
+                  authMode === "login"
+                    ? setUsername(value)
+                    : updateSignup("username", value)
+                }
+                placeholder={
+                  authMode === "login" ? "name@example.com" : "jane_cooper"
+                }
+                icon={<User size={22} />}
+              />
 
               <label className="block space-y-2">
                 <span className="flex items-center justify-between px-1 text-[13px] font-medium text-slate-800">
                   Password
-                  <button
-                    type="button"
-                    onClick={() =>
-                      toast("Use the demo account: emilys / emilyspass")
-                    }
-                    className="text-blue-700 transition hover:opacity-70"
-                  >
-                    Forgot?
-                  </button>
+                  {authMode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toast("Use the demo account: emilys / emilyspass")
+                      }
+                      className="text-blue-700 transition hover:opacity-70"
+                    >
+                      Forgot?
+                    </button>
+                  )}
                 </span>
                 <span className="flex h-14 items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 text-slate-500 transition focus-within:border-blue-700 focus-within:ring-2 focus-within:ring-blue-700/20">
                   <Lock size={22} />
                   <input
                     className="w-full bg-transparent text-base outline-none placeholder:text-slate-400"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={authMode === "login" ? password : signup.password}
+                    onChange={(e) =>
+                      authMode === "login"
+                        ? setPassword(e.target.value)
+                        : updateSignup("password", e.target.value)
+                    }
                     placeholder="••••••••"
                     type={showPassword ? "text" : "password"}
                   />
@@ -194,54 +359,73 @@ export default function LoginPage() {
                 </span>
               </label>
 
-              <label className="flex items-center gap-2 px-1 pt-1 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  className="h-5 w-5 rounded border-slate-300 text-blue-700"
+              {authMode === "signup" && (
+                <TextField
+                  label="Confirm Password"
+                  value={signup.confirmPassword}
+                  onChange={(value) => updateSignup("confirmPassword", value)}
+                  placeholder="••••••••"
+                  icon={<Lock size={22} />}
+                  type={showPassword ? "text" : "password"}
                 />
-                Remember me for 30 days
-              </label>
+              )}
+
+              {authMode === "login" && (
+                <label className="flex items-center gap-2 px-1 pt-1 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-slate-300 text-blue-700"
+                  />
+                  Remember me for 30 days
+                </label>
+              )}
 
               <button
                 type="submit"
-                disabled={loginMutation.isPending}
+                disabled={loginMutation.isPending || createAccountMutation.isPending}
                 className="primary-pill mt-4 flex h-14 w-full items-center justify-center gap-2 text-base font-medium shadow-lg shadow-blue-700/20 transition active:scale-[0.98] disabled:opacity-60"
               >
-                {loginMutation.isPending ? "Signing in..." : "Sign In"}
+                {authMode === "login"
+                  ? loginMutation.isPending
+                    ? "Signing in..."
+                    : "Sign In"
+                  : createAccountMutation.isPending
+                  ? "Creating account..."
+                  : "Create Account"}
                 <ArrowRight size={22} />
               </button>
 
-              {loginMutation.isError && (
-                <p className="text-sm text-red-500">
-                  Login failed. Check username/password.
-                </p>
+              {authMode === "login" && (
+                <div className="flex items-center gap-4 py-4 text-xs font-medium uppercase tracking-[0.05em] text-slate-500">
+                  <span className="h-px flex-1 bg-slate-300" />
+                  OR
+                  <span className="h-px flex-1 bg-slate-300" />
+                </div>
               )}
 
-              <div className="flex items-center gap-4 py-4 text-xs font-medium uppercase tracking-[0.05em] text-slate-500">
-                <span className="h-px flex-1 bg-slate-300" />
-                OR
-                <span className="h-px flex-1 bg-slate-300" />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGuestLogin}
-                className="flex h-14 w-full items-center justify-center gap-3 rounded-full border border-slate-300 bg-white text-sm font-medium text-slate-900 transition hover:bg-slate-100"
-              >
-                <User size={18} />
-                Continue as Guest
-              </button>
+              {authMode === "login" && (
+                <button
+                  type="button"
+                  onClick={handleGuestLogin}
+                  className="flex h-14 w-full items-center justify-center gap-3 rounded-full border border-slate-300 bg-white text-sm font-medium text-slate-900 transition hover:bg-slate-100"
+                >
+                  <User size={18} />
+                  Continue as Guest
+                </button>
+              )}
 
               <p className="pt-1 text-center text-sm text-slate-700">
-                New here?{" "}
+                {authMode === "login" ? "New here?" : "Already have an account?"}{" "}
                 <button
                   type="button"
                   onClick={() =>
-                    toast("DummyJSON auth uses the provided demo users.")
+                    setAuthMode((current) =>
+                      current === "login" ? "signup" : "login"
+                    )
                   }
                   className="font-semibold text-blue-700 hover:underline"
                 >
-                  Create an account
+                  {authMode === "login" ? "Create an account" : "Sign in"}
                 </button>
               </p>
             </div>
@@ -265,4 +449,213 @@ export default function LoginPage() {
       </footer>
     </main>
   );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  icon,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  icon: React.ReactNode;
+  type?: string;
+}) {
+  return (
+    <label className="block space-y-2">
+      <span className="px-1 text-[13px] font-medium text-slate-800">
+        {label}
+      </span>
+      <span className="flex h-14 items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 text-slate-500 transition focus-within:border-blue-700 focus-within:ring-2 focus-within:ring-blue-700/20">
+        {icon}
+        <input
+          className="w-full bg-transparent text-base outline-none placeholder:text-slate-400"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          type={type}
+          required
+        />
+      </span>
+    </label>
+  );
+}
+
+function buildSignupUser(
+  createdUser: AuthUser,
+  payload: CreateAccountPayload
+): AuthUser {
+  return {
+    id: createdUser.id,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    maidenName: "",
+    age: payload.age,
+    gender: "other",
+    email: payload.email,
+    phone: "+1 555 0100",
+    username: payload.username,
+    birthDate: "2000-01-01",
+    image: "https://dummyjson.com/icon/emilys/128",
+    university: "SmartCart AI Academy",
+    role: "customer",
+    address: {
+      address: "Local demo profile",
+      city: "Colombo",
+      state: "Western",
+      country: "Sri Lanka",
+      postalCode: "10000",
+    },
+    company: {
+      department: "Shopping",
+      name: "SmartCart AI",
+      title: "Smart Shopper",
+    },
+  };
+}
+
+function buildLocalTokensFromUser(user: AuthUser): LoginResponse {
+  return {
+    accessToken: `local-access-${user.id}-${Date.now()}`,
+    refreshToken: `local-refresh-${user.id}-${Date.now()}`,
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    gender: user.gender,
+    image: user.image,
+  };
+}
+
+async function getUserForTokens(tokens: LoginResponse): Promise<AuthUser> {
+  try {
+    return await withTimeout(getAuthUser(), 5000);
+  } catch (error) {
+    console.warn("Using login response profile:", error);
+    return buildUserFromLoginResponse(tokens);
+  }
+}
+
+function buildUserFromLoginResponse(tokens: LoginResponse): AuthUser {
+  return {
+    id: tokens.id,
+    firstName: tokens.firstName,
+    lastName: tokens.lastName,
+    maidenName: "",
+    age: 25,
+    gender: tokens.gender || "other",
+    email: tokens.email,
+    phone: "+1 555 0100",
+    username: tokens.username,
+    birthDate: "2000-01-01",
+    image: tokens.image || "https://dummyjson.com/icon/emilys/128",
+    university: "SmartCart AI Academy",
+    role: "customer",
+    address: {
+      address: "Demo profile",
+      city: "Colombo",
+      state: "Western",
+      country: "Sri Lanka",
+      postalCode: "10000",
+    },
+    company: {
+      department: "Shopping",
+      name: "SmartCart AI",
+      title: "Smart Shopper",
+    },
+  };
+}
+
+function buildDemoUser(): AuthUser {
+  return buildUserFromLoginResponse({
+    accessToken: "local-demo-access",
+    refreshToken: "local-demo-refresh",
+    id: 1,
+    username: DEMO_CREDENTIALS.username,
+    email: "emily.johnson@x.dummyjson.com",
+    firstName: "Emily",
+    lastName: "Johnson",
+    gender: "female",
+    image: "https://dummyjson.com/icon/emilys/128",
+  });
+}
+
+function findLocalAccount(credentials: {
+  username: string;
+  password: string;
+}): LocalAccount | null {
+  const accounts = getLocalAccounts();
+  const username = credentials.username.toLowerCase();
+
+  return (
+    accounts.find(
+      (account) =>
+        account.password === credentials.password &&
+        (account.username.toLowerCase() === username ||
+          account.email.toLowerCase() === username)
+    ) ?? null
+  );
+}
+
+function saveLocalAccount(account: LocalAccount) {
+  const accounts = getLocalAccounts().filter(
+    (item) =>
+      item.username.toLowerCase() !== account.username.toLowerCase() &&
+      item.email.toLowerCase() !== account.email.toLowerCase()
+  );
+
+  localStorage.setItem(
+    LOCAL_ACCOUNTS_KEY,
+    JSON.stringify([...accounts, account])
+  );
+}
+
+function getLocalAccounts(): LocalAccount[] {
+  try {
+    const storedAccounts = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+
+    if (!storedAccounts) {
+      return [];
+    }
+
+    const accounts = JSON.parse(storedAccounts);
+
+    return Array.isArray(accounts) ? accounts : [];
+  } catch {
+    return [];
+  }
+}
+
+function isDemoCredentials(credentials: {
+  username: string;
+  password: string;
+}) {
+  return (
+    credentials.username === DEMO_CREDENTIALS.username &&
+    credentials.password === DEMO_CREDENTIALS.password
+  );
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new Error("Request timed out"));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      });
+  });
 }
