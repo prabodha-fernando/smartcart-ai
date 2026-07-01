@@ -12,31 +12,20 @@ export default function CategoryFilter({
   onSelectCategory,
 }: CategoryFilterProps) {
   return (
-    <div className="mt-6 flex gap-3 overflow-x-auto pb-2">
-      <button
-        onClick={() => onSelectCategory("")}
-        className={`rounded-full px-4 py-2 text-sm font-medium ${
-          selectedCategory === ""
-            ? "bg-blue-600 text-white"
-            : "bg-gray-100"
-        }`}
-      >
-        All
-      </button>
-
+    <>
       {categories.map((category) => (
         <button
           key={category.slug}
           onClick={() => onSelectCategory(category.slug)}
-          className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium ${
+          className={`whitespace-nowrap rounded-full px-6 py-3 text-base font-medium ${
             selectedCategory === category.slug
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100"
+              ? "bg-blue-700 text-white"
+              : "bg-slate-50 text-slate-950"
           }`}
         >
           {category.name}
         </button>
       ))}
-    </div>
+    </>
   );
 }

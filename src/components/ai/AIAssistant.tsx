@@ -1,51 +1,85 @@
 "use client";
 
 import { useState } from "react";
-import { Product } from "@/types/product";
-import { generateAIRecommendation } from "@/lib/aiAssistant";
+import { Send, Sparkles } from "lucide-react";
+import ProductCard from "@/components/products/ProductCard";
+import { useAIProductAssistant } from "@/hooks/useAI";
 
-interface AIAssistantProps {
-  products: Product[];
-}
-
-export default function AIAssistant({ products }: AIAssistantProps) {
+export default function AIAssistant() {
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+  const aiMutation = useAIProductAssistant();
 
-  const handleAsk = () => {
-    const response = generateAIRecommendation(question, products);
-    setAnswer(response);
+  const handleAsk = async () => {
+    await aiMutation.mutateAsync(question);
   };
 
   return (
-    <div className="rounded-3xl border bg-white p-8 shadow-sm">
-      <h2 className="text-2xl font-bold text-gray-900">
-        AI Shopping Assistant
+    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-8 shadow-[0_16px_50px_rgba(15,23,42,0.06)]">
+      <div className="mx-auto mb-8 flex w-fit items-center gap-2 rounded-full bg-teal-700 px-4 py-1.5 text-white label-caps">
+        <Sparkles size={14} />
+        AI Assistant
+      </div>
+
+      <h2 className="text-center font-display text-3xl font-semibold text-slate-950">
+        What&apos;s on your mind?
       </h2>
 
-      <p className="mt-2 text-gray-500">
-        Ask for product recommendations based on price, rating, or purpose.
-      </p>
-
-      <div className="mt-6 flex gap-3">
+      <div className="mx-auto mt-6 flex max-w-3xl items-center rounded-full border border-slate-300 bg-white p-2 shadow-sm">
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask AI: What is the best budget product?"
-          className="w-full rounded-xl border px-4 py-3"
+          placeholder="What should I buy for university?"
+          className="min-w-0 flex-1 bg-transparent px-5 font-mono text-sm outline-none"
         />
 
         <button
           onClick={handleAsk}
-          className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white"
+          disabled={aiMutation.isPending}
+          className="primary-pill inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold"
         >
-          Ask
+          {aiMutation.isPending ? "Thinking..." : "Ask AI"}
+          <Send size={16} />
         </button>
       </div>
 
-      {answer && (
-        <div className="mt-4 rounded-2xl bg-blue-50 p-4 text-blue-700">
-          {answer}
+      <div className="mx-auto mt-4 flex max-w-3xl flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+        <span>Try:</span>
+        {[
+          "Best noise-canceling headphones",
+          "Durable laptop bags under $100",
+          "Top-rated mechanical keyboards",
+        ].map((prompt) => (
+          <button
+            key={prompt}
+            onClick={() => setQuestion(prompt)}
+            className="rounded-full bg-[#eef3ff] px-3 py-1"
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+
+      {aiMutation.data && (
+        <div className="mx-auto mt-6 max-w-5xl">
+          <div className="rounded-2xl bg-blue-50 p-4 text-sm text-blue-800">
+            Structured query: category{" "}
+            <strong>{aiMutation.data.query.category || "any"}</strong>, max
+            price{" "}
+            <strong>{aiMutation.data.query.maxPrice || "any"}</strong>, keywords{" "}
+            <strong>{aiMutation.data.query.keywords.join(", ") || "none"}</strong>
+          </div>
+
+          {aiMutation.data.products.length > 0 ? (
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {aiMutation.data.products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-2xl bg-slate-50 p-5 text-slate-600">
+              No matching products found. Try a broader prompt.
+            </div>
+          )}
         </div>
       )}
     </div>

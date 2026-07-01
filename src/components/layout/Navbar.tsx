@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { LogOut, Menu, Search, UserCircle, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   const router = useRouter();
+  const pathname = usePathname();
   const logout = useAuthStore((state) => state.logout);
 
   const handleLogout = () => {
@@ -24,37 +25,65 @@ export default function Navbar() {
     { href: "/profile", label: "Profile" },
   ];
 
+  const searchPlaceholder =
+    pathname === "/favorites"
+      ? "Search saved items..."
+      : pathname.startsWith("/products")
+      ? "Search products, tech, or AI insights..."
+      : "Search products...";
+
   return (
-    <nav className="border-b bg-white shadow-sm">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+    <nav className="sticky top-0 z-50 border-b border-slate-100 bg-white/90 shadow-[0_8px_30px_rgba(15,23,42,0.04)] backdrop-blur">
+      <div className="app-container flex h-20 items-center justify-between gap-6">
         <Link
           href="/"
-          className="text-xl font-bold text-blue-600"
+          className="font-display shrink-0 text-2xl font-semibold text-slate-950"
         >
           SmartCart AI
         </Link>
 
-        {/* Desktop Navigation */}
-        <div className="hidden items-center gap-6 md:flex">
+        <div className="hidden items-center gap-8 md:flex">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-gray-700 transition hover:text-blue-600"
+              className={`text-sm font-medium transition hover:text-blue-700 ${
+                pathname === link.href
+                  ? "text-blue-700"
+                  : "text-slate-700"
+              }`}
             >
               {link.label}
             </Link>
           ))}
+        </div>
 
+        <div className="hidden min-w-0 flex-1 justify-center lg:flex">
+          <div className="flex w-full max-w-xl items-center gap-3 rounded-full bg-slate-50 px-5 py-3 text-slate-500">
+            <Search size={22} />
+            <span className="font-mono text-sm tracking-[0.15em]">
+              {searchPlaceholder}
+            </span>
+          </div>
+        </div>
+
+        <div className="hidden items-center gap-5 md:flex">
+          <Link
+            href="/profile"
+            aria-label="Profile"
+            className="text-blue-700 transition hover:opacity-70"
+          >
+            <UserCircle size={24} />
+          </Link>
           <button
             onClick={handleLogout}
-            className="text-sm font-medium text-red-500 transition hover:text-red-600"
+            aria-label="Logout"
+            className="text-blue-700 transition hover:opacity-70"
           >
-            Logout
+            <LogOut size={23} />
           </button>
         </div>
 
-        {/* Mobile Menu Button */}
         <button
           className="md:hidden"
           onClick={() => setOpen(!open)}
@@ -64,7 +93,6 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Navigation */}
       {open && (
         <div className="border-t bg-white md:hidden">
           <div className="flex flex-col p-4">

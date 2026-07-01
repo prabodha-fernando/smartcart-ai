@@ -39,3 +39,19 @@ export interface User {
     title: string;
   };
 }
+
+export interface UsersResponse {
+  users: User[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
+export interface CreateAccountPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  username: string;
+  password: string;
+  age: number;
+}

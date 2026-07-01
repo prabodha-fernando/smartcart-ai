@@ -4,6 +4,7 @@ import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useLimitedProducts } from "@/hooks/useProducts";
 import Image from "next/image";
+import Footer from "@/components/layout/Footer";
 
 export default function LimitedProductsPage() {
   const { data, isLoading } =
@@ -11,13 +12,16 @@ export default function LimitedProductsPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-gray-50">
+      <main className="min-h-screen bg-white">
         <Navbar />
 
-        <section className="mx-auto max-w-7xl px-6 py-10">
-          <h1 className="text-3xl font-bold">
+        <section className="app-container py-16">
+          <h1 className="font-display text-4xl font-bold text-slate-950 md:text-5xl">
             Limited Products
           </h1>
+          <p className="mt-4 text-xl text-slate-500">
+            Selected fields from the limit and skip products API.
+          </p>
 
           {isLoading && (
             <p className="mt-6">Loading...</p>
@@ -27,7 +31,7 @@ export default function LimitedProductsPage() {
             {data?.products?.map((product) => (
               <div
                 key={product.id}
-                className="rounded-2xl bg-white p-4 shadow"
+                className="premium-card p-6"
               >
                 <div className="relative h-40 w-full overflow-hidden rounded-xl bg-gray-50">
                   <Image
@@ -39,19 +43,23 @@ export default function LimitedProductsPage() {
                   />
                 </div>
 
-                <h2 className="mt-3 font-bold">
+                <h2 className="mt-5 font-display text-xl font-semibold">
                   {product.title}
                 </h2>
 
-                <p>${product.price}</p>
+                <p className="mt-4 font-display text-2xl font-bold text-blue-700">
+                  ${product.price.toFixed(2)}
+                </p>
 
-                <p>
+                <p className="mt-1 text-sm text-slate-500">
                   ⭐ {product.rating}
                 </p>
               </div>
             ))}
           </div>
         </section>
+
+        <Footer />
       </main>
     </ProtectedRoute>
   );

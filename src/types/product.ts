@@ -72,3 +72,10 @@ export interface LimitedProductsResponse {
   skip: number;
   limit: number;
 }
+
+export interface AIProductQuery {
+  category: string | null;
+  maxPrice: number | null;
+  minRating: number | null;
+  keywords: string[];
+}
