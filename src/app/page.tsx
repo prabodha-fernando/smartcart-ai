@@ -8,6 +8,8 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ProductSkeleton from "@/components/products/ProductSkeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import AIAssistant from "@/components/ai/AIAssistant";
+import { Reveal, StaggerGroup, MotionItem, fadeUpItem, staggerParent } from "@/components/ui/motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -39,15 +41,21 @@ export default function HomePage() {
         <Navbar />
 
         <section className="app-container grid items-center gap-12 py-16 lg:grid-cols-2">
-          <div>
-            <h1 className="font-display text-4xl font-bold leading-tight text-slate-950 md:text-5xl">
+          <motion.div initial="hidden" animate="visible" variants={staggerParent}>
+            <motion.h1
+              variants={fadeUpItem}
+              className="font-display text-4xl font-bold leading-tight text-slate-950 md:text-5xl"
+            >
               Find Better Products with AI
-            </h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
+            </motion.h1>
+            <motion.p
+              variants={fadeUpItem}
+              className="mt-5 max-w-xl text-lg leading-8 text-slate-600"
+            >
               Discover personalized recommendations and smarter shopping
               experiences tailored to your lifestyle.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-4">
+            </motion.p>
+            <motion.div variants={fadeUpItem} className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/products"
                 className="primary-pill inline-flex items-center gap-2 px-7 py-3 text-sm font-semibold"
@@ -61,10 +69,15 @@ export default function HomePage() {
               >
                 Ask AI
               </a>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
-          <div className="rounded-[2rem] bg-[#eef3ff] p-12">
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+            className="rounded-[2rem] bg-[#eef3ff] p-12"
+          >
             <div className="mx-auto max-w-md rounded-3xl bg-white/80 p-7 shadow-[0_28px_80px_rgba(15,23,42,0.16)]">
               <div className="mb-5 h-5 w-44 rounded-full bg-blue-100" />
               <div className="grid grid-cols-2 gap-5 rounded-2xl bg-[#dfe7ff] p-5">
@@ -83,7 +96,7 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
-          </div>
+          </motion.div>
         </section>
 
         {!isLoading && !isError && data?.products && (
@@ -104,32 +117,35 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="mt-8 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-6">
+          <StaggerGroup className="mt-8 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-6">
             {categories.map(({ label, icon: Icon, meta }) => (
-              <Link
-                key={label}
-                href="/products"
-                className="premium-card flex flex-col items-center justify-center p-6 text-center transition hover:-translate-y-1"
-              >
-                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
-                  <Icon size={22} />
-                </span>
-                <span className="mt-4 text-sm font-semibold text-slate-950">
-                  {label}
-                </span>
-                <span className="text-xs text-slate-500">{meta}</span>
-              </Link>
+              <MotionItem key={label} whileHover={{ y: -6 }}>
+                <Link
+                  href="/products"
+                  className="premium-card flex h-full flex-col items-center justify-center p-6 text-center"
+                >
+                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                    <Icon size={22} />
+                  </span>
+                  <span className="mt-4 text-sm font-semibold text-slate-950">
+                    {label}
+                  </span>
+                  <span className="text-xs text-slate-500">{meta}</span>
+                </Link>
+              </MotionItem>
             ))}
-          </div>
+          </StaggerGroup>
         </section>
 
         <section className="app-container py-8">
-          <h2 className="font-display text-2xl font-semibold text-slate-950">
-            Trending Today
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Hottest picks across all categories
-          </p>
+          <Reveal>
+            <h2 className="font-display text-2xl font-semibold text-slate-950">
+              Trending Today
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Hottest picks across all categories
+            </p>
+          </Reveal>
 
           {isLoading && (
             <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -156,7 +172,7 @@ export default function HomePage() {
           )}
         </section>
 
-        <section className="app-container grid gap-8 py-12 lg:grid-cols-[2fr_1fr]">
+        <Reveal className="app-container grid gap-8 py-12 lg:grid-cols-[2fr_1fr]">
           <div className="grid overflow-hidden rounded-[1.5rem] bg-[#dfe7ff] md:grid-cols-2">
             <div className="p-10">
               <p className="label-caps text-blue-700">Personalized Pick</p>
@@ -192,20 +208,22 @@ export default function HomePage() {
               Shop Sale
             </Link>
           </div>
-        </section>
+        </Reveal>
 
         <section className="bg-slate-50 py-16">
           <div className="app-container">
-            <h2 className="text-center font-display text-2xl font-semibold">
-              Why Shop with SmartCart?
-            </h2>
-            <div className="mt-10 grid gap-6 md:grid-cols-3">
+            <Reveal>
+              <h2 className="text-center font-display text-2xl font-semibold">
+                Why Shop with SmartCart?
+              </h2>
+            </Reveal>
+            <StaggerGroup className="mt-10 grid gap-6 md:grid-cols-3">
               {[
                 ["AI Recommendations", Sparkles],
                 ["Smart Filtering", SlidersHorizontal],
                 ["Personalized Feed", UserCheck],
               ].map(([title, Icon]) => (
-                <div key={title as string} className="rounded-2xl bg-white p-8 shadow-sm">
+                <MotionItem key={title as string} className="rounded-2xl bg-white p-8 shadow-sm">
                   <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
                     <Icon size={22} />
                   </span>
@@ -216,9 +234,9 @@ export default function HomePage() {
                     Intelligent shopping tools reduce noise and surface products
                     you will actually love.
                   </p>
-                </div>
+                </MotionItem>
               ))}
-            </div>
+            </StaggerGroup>
           </div>
         </section>
 

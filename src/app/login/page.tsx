@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import Image from "next/image";
 import { useCreateAccount, useLogin } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
@@ -76,10 +77,6 @@ export default function LoginPage() {
       const tokens = await withTimeout(
         loginMutation.mutateAsync(normalizedCredentials),
         6000
-      );
-      useAuthStore.getState().setTokens(
-        tokens.accessToken,
-        tokens.refreshToken
       );
       const user = await getUserForTokens(tokens);
 
@@ -210,7 +207,12 @@ export default function LoginPage() {
               SmartCart AI
             </div>
 
-            <div className="mt-20 max-w-md">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+              className="mt-20 max-w-md"
+            >
               <h1 className="font-display text-5xl font-bold leading-[1.1]">
                 Shop Smarter{" "}
                 <br />
@@ -221,7 +223,7 @@ export default function LoginPage() {
                 insights meet elegant design. Your personal shopping assistant
                 awaits.
               </p>
-            </div>
+            </motion.div>
           </div>
 
           <div className="relative z-10 flex items-center justify-center py-8">
@@ -264,9 +266,12 @@ export default function LoginPage() {
         </section>
 
         <section className="flex flex-1 items-center justify-center bg-white p-8">
-          <form
+          <motion.form
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             onSubmit={authMode === "login" ? handleLogin : handleCreateAccount}
-            className="w-full max-w-[440px] rounded-[20px] border border-slate-200 bg-slate-50 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)] transition-all duration-300"
+            className="w-full max-w-[440px] rounded-[20px] border border-slate-200 bg-slate-50 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
           >
             <header className="mb-8">
               <h2 className="font-display text-[32px] font-semibold leading-tight">
@@ -433,7 +438,7 @@ export default function LoginPage() {
                 </button>
               </p>
             </div>
-          </form>
+          </motion.form>
         </section>
       </div>
 
@@ -540,7 +545,8 @@ function buildLocalTokensFromUser(user: AuthUser): LoginResponse {
 async function getUserForTokens(tokens: LoginResponse): Promise<AuthUser> {
   try {
     return await withTimeout(getAuthUser(), 5000);
-  } catch {
+  } catch (error) {
+    console.warn("Using login response profile:", error);
     return buildUserFromLoginResponse(tokens);
   }
 }

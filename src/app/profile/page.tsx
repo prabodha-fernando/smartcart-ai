@@ -4,20 +4,108 @@ import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuthUser } from "@/hooks/useAuth";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import Footer from "@/components/layout/Footer";
-import { Briefcase, GraduationCap, LogOut, MapPin, Pencil, Save, User } from "lucide-react";
+import { Briefcase, GraduationCap, LogOut, MapPin, Pencil, Save, User, X } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { User as AuthUser } from "@/types/user";
 import toast from "react-hot-toast";
+
+interface ProfileForm {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+const EMPTY_FORM: ProfileForm = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  address: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  country: "",
+};
 
 export default function ProfilePage() {
   const { data: user, isLoading, isError } = useAuthUser();
   const logout = useAuthStore((state) => state.logout);
+  const updateUser = useAuthStore((state) => state.updateUser);
+  const queryClient = useQueryClient();
   const router = useRouter();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
+
+  const setField = (key: keyof ProfileForm, value: string) =>
+    setForm((current) => ({ ...current, [key]: value }));
 
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  const startEditing = () => {
+    if (!user) return;
+
+    setForm({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      address: user.address.address,
+      city: user.address.city,
+      state: user.address.state,
+      postalCode: user.address.postalCode,
+      country: user.address.country,
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    if (!user) return;
+
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      toast.error("First and last name are required.");
+      return;
+    }
+
+    if (!form.email.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    const updated: AuthUser = {
+      ...user,
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      address: {
+        ...user.address,
+        address: form.address.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        postalCode: form.postalCode.trim(),
+        country: form.country.trim(),
+      },
+    };
+
+    updateUser(updated);
+    queryClient.setQueryData(["auth-user"], updated);
+    setIsEditing(false);
+    toast.success("Profile updated.");
   };
 
   return (
@@ -33,14 +121,20 @@ export default function ProfilePage() {
 
         {user && (
           <>
-            <section className="bg-slate-50 py-20 md:py-28">
-              <div className="app-container flex flex-col gap-10 md:flex-row md:items-end">
-                <div className="relative h-56 w-56 overflow-hidden rounded-full border-8 border-white bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
+            <section className="bg-slate-50 py-20">
+              <div className="app-container flex flex-col gap-10 md:flex-row md:items-center">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="relative h-56 w-56 overflow-hidden rounded-full border-8 border-white bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
+                >
                   <Image
                     src={user.image}
                     alt={user.firstName}
                     fill
                     sizes="224px"
+                    loading="eager"
                     className="object-cover"
                   />
                   <button
@@ -49,9 +143,13 @@ export default function ProfilePage() {
                   >
                     <Pencil size={22} />
                   </button>
-                </div>
+                </motion.div>
 
-                <div className="pb-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+                >
                   <span className="rounded-full bg-blue-100 px-4 py-2 text-blue-700 label-caps">
                     Premium Member
                   </span>
@@ -61,7 +159,7 @@ export default function ProfilePage() {
                   <p className="mt-3 text-2xl text-slate-500">
                     {user.company.title} & Tech Enthusiast
                   </p>
-                </div>
+                </motion.div>
               </div>
             </section>
 
@@ -69,11 +167,29 @@ export default function ProfilePage() {
               <Panel title="Personal Information" icon={User}>
                 <div className="grid gap-8 md:grid-cols-2">
                   <InfoItem
-                    label="Full Name"
-                    value={`${user.firstName} ${user.maidenName} ${user.lastName}`}
+                    label="First Name"
+                    value={isEditing ? form.firstName : user.firstName}
+                    editing={isEditing}
+                    onChange={(value) => setField("firstName", value)}
                   />
-                  <InfoItem label="Email Address" value={user.email} />
-                  <InfoItem label="Phone Number" value={user.phone} />
+                  <InfoItem
+                    label="Last Name"
+                    value={isEditing ? form.lastName : user.lastName}
+                    editing={isEditing}
+                    onChange={(value) => setField("lastName", value)}
+                  />
+                  <InfoItem
+                    label="Email Address"
+                    value={isEditing ? form.email : user.email}
+                    editing={isEditing}
+                    onChange={(value) => setField("email", value)}
+                  />
+                  <InfoItem
+                    label="Phone Number"
+                    value={isEditing ? form.phone : user.phone}
+                    editing={isEditing}
+                    onChange={(value) => setField("phone", value)}
+                  />
                   <InfoItem label="Timezone" value="Pacific Time (PT)" />
                 </div>
               </Panel>
@@ -88,11 +204,37 @@ export default function ProfilePage() {
 
               <Panel title="Primary Residence" icon={MapPin}>
                 <div className="grid gap-8 md:grid-cols-4">
-                  <InfoItem label="Street Address" value={user.address.address} wide />
-                  <InfoItem label="City" value={user.address.city} />
-                  <InfoItem label="State" value={user.address.state} />
-                  <InfoItem label="Zip" value={user.address.postalCode} />
-                  <InfoItem label="Country" value={user.address.country} />
+                  <InfoItem
+                    label="Street Address"
+                    value={isEditing ? form.address : user.address.address}
+                    editing={isEditing}
+                    onChange={(value) => setField("address", value)}
+                    wide
+                  />
+                  <InfoItem
+                    label="City"
+                    value={isEditing ? form.city : user.address.city}
+                    editing={isEditing}
+                    onChange={(value) => setField("city", value)}
+                  />
+                  <InfoItem
+                    label="State"
+                    value={isEditing ? form.state : user.address.state}
+                    editing={isEditing}
+                    onChange={(value) => setField("state", value)}
+                  />
+                  <InfoItem
+                    label="Zip"
+                    value={isEditing ? form.postalCode : user.address.postalCode}
+                    editing={isEditing}
+                    onChange={(value) => setField("postalCode", value)}
+                  />
+                  <InfoItem
+                    label="Country"
+                    value={isEditing ? form.country : user.address.country}
+                    editing={isEditing}
+                    onChange={(value) => setField("country", value)}
+                  />
                 </div>
               </Panel>
 
@@ -116,20 +258,41 @@ export default function ProfilePage() {
                   </div>
                 </Panel>
 
-                <button
-                  onClick={() => toast.success("Profile changes saved locally")}
-                  className="primary-pill flex w-full items-center justify-center gap-3 px-6 py-5 text-lg font-semibold"
-                >
-                  <Save size={21} />
-                  Update Changes
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="flex w-full items-center justify-center gap-3 rounded-full border border-red-200 px-6 py-5 text-lg font-semibold text-red-600"
-                >
-                  <LogOut size={21} />
-                  Logout Session
-                </button>
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={handleSave}
+                      className="primary-pill flex w-full items-center justify-center gap-3 px-6 py-5 text-lg font-semibold"
+                    >
+                      <Save size={21} />
+                      Update Changes
+                    </button>
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="flex w-full items-center justify-center gap-3 rounded-full border border-slate-300 px-6 py-5 text-lg font-semibold text-slate-700"
+                    >
+                      <X size={21} />
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={startEditing}
+                      className="primary-pill flex w-full items-center justify-center gap-3 px-6 py-5 text-lg font-semibold"
+                    >
+                      <Pencil size={21} />
+                      Edit Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center justify-center gap-3 rounded-full border border-red-200 px-6 py-5 text-lg font-semibold text-red-600"
+                    >
+                      <LogOut size={21} />
+                      Logout Session
+                    </button>
+                  </>
+                )}
               </div>
             </section>
           </>
@@ -153,8 +316,12 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className={`rounded-[20px] bg-slate-50 p-9 transition hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(0,0,0,0.06)] ${
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className={`rounded-[1.5rem] bg-slate-50 p-9 ${
         highlighted ? "border border-teal-200" : ""
       }`}
     >
@@ -163,7 +330,7 @@ function Panel({
         {title}
       </h2>
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -171,15 +338,27 @@ function InfoItem({
   label,
   value,
   wide = false,
+  editing = false,
+  onChange,
 }: {
   label: string;
   value: string;
   wide?: boolean;
+  editing?: boolean;
+  onChange?: (value: string) => void;
 }) {
   return (
     <div className={wide ? "md:col-span-4" : ""}>
       <p className="label-caps text-slate-500">{label}</p>
-      <p className="mt-3 text-xl text-slate-950">{value}</p>
+      {editing && onChange ? (
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-xl text-slate-950 outline-none transition focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20"
+        />
+      ) : (
+        <p className="mt-3 text-xl text-slate-950">{value}</p>
+      )}
     </div>
   );
 }

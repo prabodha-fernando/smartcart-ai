@@ -13,13 +13,23 @@ import {
   useSearchProducts,
   useCategories,
   useProductsByCategory,
-  useLimitedProducts,
+  useInfiniteLimitedProducts,
 } from "@/hooks/useProducts";
 import { Suspense, useState } from "react";
-import { Bot, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Bot, ChevronDown } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { LimitedProduct } from "@/types/product";
 import { useSearchParams } from "next/navigation";
+import { Reveal } from "@/components/ui/motion";
+import { motion } from "framer-motion";
+
+type SortOption = "featured" | "price" | "rating";
+
+const SORT_OPTIONS: [SortOption, string][] = [
+  ["featured", "Featured"],
+  ["price", "Price"],
+  ["rating", "Rating"],
+];
 
 export default function ProductsPage() {
   return (
@@ -39,29 +49,35 @@ function ProductsContent() {
 function ProductsState({ initialSearch }: { initialSearch: string }) {
   const [search, setSearch] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [sortBy, setSortBy] = useState<"featured" | "price" | "rating">(
-    "featured"
-  );
-  const [page, setPage] = useState(1);
-  const limit = 10;
-  const skip = (page - 1) * limit;
+  const [sortBy, setSortBy] = useState<SortOption>("featured");
+  const [sortOpen, setSortOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(search);
 
-  const { data: allProducts, isLoading, isError } =
-    useLimitedProducts(limit, skip);
+  const {
+    data: limitedProducts,
+    isLoading,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteLimitedProducts(8);
   const { data: categories } = useCategories();
   const { data: categoryProducts } = useProductsByCategory(selectedCategory);
   const { data: searchResults } = useSearchProducts(debouncedSearch);
+
+  const loadedProducts =
+    limitedProducts?.pages.flatMap((page) => page.products) ?? [];
 
   const products =
     debouncedSearch.length > 0
       ? searchResults?.products
       : selectedCategory
       ? categoryProducts?.products
-      : allProducts?.products;
+      : loadedProducts;
 
   const sortedProducts = sortProducts(products || [], sortBy);
-  const totalPages = allProducts ? Math.ceil(allProducts.total / limit) : 1;
+  const showLoadMore =
+    !debouncedSearch && !selectedCategory && hasNextPage;
 
   return (
     <ProtectedRoute>
@@ -70,22 +86,19 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
 
         <section className="app-container py-16 md:py-20">
           <div className="flex flex-col gap-8">
-            <div>
+            <Reveal>
               <h1 className="font-display text-5xl font-bold leading-tight text-slate-950 md:text-6xl">
                 Explore Products
               </h1>
               <p className="mt-4 text-xl text-slate-500">
                 AI-curated selections tailored to your preferences.
               </p>
-            </div>
+            </Reveal>
 
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => {
-                    setSelectedCategory("");
-                    setPage(1);
-                  }}
+                  onClick={() => setSelectedCategory("")}
                   className={`rounded-full px-6 py-3 text-base font-medium ${
                     selectedCategory === ""
                       ? "bg-blue-700 text-white"
@@ -106,41 +119,65 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
                     ) || []
                   }
                   selectedCategory={selectedCategory}
-                  onSelectCategory={(category) => {
-                    setSelectedCategory(category);
-                    setPage(1);
-                  }}
+                  onSelectCategory={(category) =>
+                    setSelectedCategory(category)
+                  }
                 />
-
-                {[
-                  ["price", "Price"],
-                  ["rating", "Rating"],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    onClick={() =>
-                      setSortBy((current) =>
-                        current === value ? "featured" : (value as typeof sortBy)
-                      )
-                    }
-                    className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-base font-medium ${
-                      sortBy === value
-                        ? "bg-blue-700 text-white"
-                        : "bg-slate-50 text-slate-950"
-                    }`}
-                  >
-                    {label}
-                    <ChevronDown size={16} />
-                  </button>
-                ))}
               </div>
 
-              <div className="flex items-center gap-4 text-lg text-slate-500">
+              <div className="relative flex items-center gap-4 text-lg text-slate-500">
                 Sort by:
-                <span className="inline-flex items-center gap-8 font-medium text-slate-900 capitalize">
-                  {sortBy}
-                  <ChevronDown size={18} />
-                </span>
+                <button
+                  onClick={() => setSortOpen((open) => !open)}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-6 py-3 font-medium text-slate-950"
+                  aria-haspopup="listbox"
+                  aria-expanded={sortOpen}
+                >
+                  <span className="capitalize">{sortBy}</span>
+                  <ChevronDown
+                    size={18}
+                    className={`transition-transform ${
+                      sortOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {sortOpen && (
+                  <button
+                    type="button"
+                    aria-hidden
+                    tabIndex={-1}
+                    onClick={() => setSortOpen(false)}
+                    className="fixed inset-0 z-10 cursor-default"
+                  />
+                )}
+
+                {sortOpen && (
+                  <ul
+                    role="listbox"
+                    className="absolute right-0 top-full z-20 mt-2 w-40 overflow-hidden rounded-2xl border border-slate-100 bg-white py-1 text-base shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                  >
+                    {SORT_OPTIONS.map(([value, label]) => (
+                      <li key={value}>
+                        <button
+                          role="option"
+                          aria-selected={sortBy === value}
+                          onClick={() => {
+                            setSortBy(value);
+                            setSortOpen(false);
+                          }}
+                          className={`flex w-full items-center px-5 py-2.5 text-left font-medium ${
+                            sortBy === value
+                              ? "bg-blue-700 text-white"
+                              : "text-slate-950 hover:bg-slate-50"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
 
@@ -149,10 +186,7 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
                 type="text"
                 placeholder="Search products..."
                 value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => setSearch(e.target.value)}
                 className="w-full bg-transparent font-mono outline-none"
               />
             </div>
@@ -187,42 +221,17 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
             </div>
           )}
 
-          {!isLoading && !isError && !debouncedSearch && !selectedCategory && (
-            <div className="mt-24 flex items-center justify-center gap-5 text-lg">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage((prev) => prev - 1)}
-                className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white disabled:opacity-40"
-                aria-label="Previous page"
+          {!isLoading && !isError && showLoadMore && (
+            <div className="mt-24 flex items-center justify-center">
+              <motion.button
+                disabled={isFetchingNextPage}
+                onClick={() => fetchNextPage()}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="inline-flex h-12 items-center justify-center rounded-full bg-blue-700 px-8 text-base font-semibold text-white disabled:opacity-40"
               >
-                <ChevronLeft size={20} />
-              </button>
-
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-blue-700 font-semibold text-white">
-                {page}
-              </span>
-              {page < totalPages && (
-                <>
-                  <button
-                    onClick={() => setPage(2)}
-                    className="inline-flex h-12 w-12 items-center justify-center rounded-full"
-                  >
-                    2
-                  </button>
-                  <span>3</span>
-                  <span>...</span>
-                  <span>{totalPages}</span>
-                </>
-              )}
-
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage((prev) => prev + 1)}
-                className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white disabled:opacity-40"
-                aria-label="Next page"
-              >
-                <ChevronRight size={20} />
-              </button>
+                {isFetchingNextPage ? "Loading..." : "Load More"}
+              </motion.button>
             </div>
           )}
         </section>
