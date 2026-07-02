@@ -13,9 +13,9 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import {
   ArrowRight,
-  BookOpen,
   Home,
   Shirt,
+  ShoppingBasket,
   Sparkles,
   Smartphone,
   SlidersHorizontal,
@@ -27,12 +27,12 @@ import {
 export default function HomePage() {
   const { data, isLoading, isError } = useProducts();
   const categories = [
-    { label: "Electronics", icon: Smartphone, meta: "1.2k items" },
-    { label: "Beauty", icon: Sparkles, meta: "840 items" },
-    { label: "Fashion", icon: Shirt, meta: "2.1k items" },
-    { label: "Home & Decor", icon: Home, meta: "960 items" },
-    { label: "Sports", icon: Trophy, meta: "540 items" },
-    { label: "Books", icon: BookOpen, meta: "3.5k items" },
+    { label: "Electronics", icon: Smartphone, meta: "1.2k items", slug: "smartphones" },
+    { label: "Beauty", icon: Sparkles, meta: "840 items", slug: "beauty" },
+    { label: "Fashion", icon: Shirt, meta: "2.1k items", slug: "mens-shirts" },
+    { label: "Home & Decor", icon: Home, meta: "960 items", slug: "home-decoration" },
+    { label: "Sports", icon: Trophy, meta: "540 items", slug: "sports-accessories" },
+    { label: "Groceries", icon: ShoppingBasket, meta: "3.5k items", slug: "groceries" },
   ];
 
   return (
@@ -112,16 +112,16 @@ export default function HomePage() {
                 Browse by Category
               </h2>
             </div>
-            <Link href="/products" className="text-sm font-medium text-blue-700">
+            <Link href="/categories" className="text-sm font-medium text-blue-700">
               View All →
             </Link>
           </div>
 
           <StaggerGroup className="mt-8 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-6">
-            {categories.map(({ label, icon: Icon, meta }) => (
+            {categories.map(({ label, icon: Icon, meta, slug }) => (
               <MotionItem key={label} whileHover={{ y: -6 }}>
                 <Link
-                  href="/products"
+                  href={`/categories/${slug}`}
                   className="premium-card flex h-full flex-col items-center justify-center p-6 text-center"
                 >
                   <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
