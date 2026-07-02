@@ -1,21 +1,81 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Design tokens — single source of truth for colors & effects
+   ============================================================ */
 :root {
+  /* Base */
   --background: #ffffff;
   --foreground: #141b2b;
+
+  /* Primary — brand blue (+ shades) */
+  --primary: #004ac6;
+  --primary-hover: #003ea8;
+  --primary-bright: #0053db;
+  --primary-soft: #eef3ff;
+  --primary-contrast: #ffffff;
+
+  /* Secondary — brand teal (+ shades) */
+  --secondary: #007b6e;
+  --secondary-hover: #016558;
+  --secondary-soft: #e6f4f1;
+  --secondary-contrast: #ffffff;
+
+  /* Surfaces */
   --surface: #f9f9ff;
   --surface-soft: #f8fafc;
-  --surface-blue: #eef3ff;
-  --primary: #004ac6;
-  --primary-bright: #0053db;
-  --accent: #007b6e;
+  --surface-muted: #f9fafb;
+  --surface-blue: var(--primary-soft);
+  --skeleton-base: #eef1f6;
+
+  /* Text */
+  --text-strong: #111827;
   --muted: #6b7280;
-  --line: #e5e7eb;
+  --placeholder: #9ca3af;
+
+  /* Borders */
+  --border: #e5e7eb;
+  --border-focus: #93c5fd;
+  --line: var(--border);
+
+  /* Feedback */
+  --danger: #e11d48;
+  --success: #059669;
+
+  /* Effects */
+  --ring-primary: rgba(0, 74, 198, 0.12);
+  --shadow-card: 0 4px 20px rgba(15, 23, 42, 0.04);
+  --shadow-brand: 0 8px 20px rgba(0, 83, 219, 0.35);
+  --radius-pill: 9999px;
+  --radius-card: 1.25rem;
+  --radius-field: 0.9rem;
+
+  /* Brand gradient (primary → secondary) */
+  --brand-gradient: linear-gradient(
+    135deg,
+    var(--primary-bright) 0%,
+    var(--secondary) 100%
+  );
 }
 
+/* Expose brand tokens to Tailwind utilities (bg-primary, text-secondary, …) */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-bright: var(--primary-bright);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-soft: var(--secondary-soft);
+
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -47,26 +107,90 @@ h3,
 }
 
 .premium-card {
-  border-radius: 1.25rem;
-  background: #f9fafb;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  box-shadow: var(--shadow-card);
 }
 
 .primary-pill {
-  border-radius: 9999px;
-  background: #004ac6;
-  color: #fff;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--primary-contrast);
   transition: background-color 160ms ease, transform 160ms ease;
 }
 
 .primary-pill:hover {
-  background: #003ea8;
+  background: var(--primary-hover);
 }
 
 .soft-pill {
-  border-radius: 9999px;
-  background: #f8fafc;
-  color: #111827;
+  border-radius: var(--radius-pill);
+  background: var(--surface-soft);
+  color: var(--text-strong);
+}
+
+.brand-gradient {
+  background-image: var(--brand-gradient);
+}
+
+.brand-text {
+  background-image: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.input-base {
+  width: 100%;
+  border-radius: var(--radius-field);
+  border: 1px solid var(--border);
+  background: var(--background);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-strong);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.input-base::placeholder {
+  color: var(--placeholder);
+}
+
+.input-base:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--ring-primary);
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--skeleton-base);
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.65) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    animation: none;
+  }
 }
 
 @keyframes loginFloat {

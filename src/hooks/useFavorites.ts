@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Product } from "@/types/product";
+import { LimitedProduct } from "@/types/product";
 import { useFavoritesStore } from "@/store/favoritesStore";
 import toast from "react-hot-toast";
 
@@ -7,7 +7,7 @@ export function useAddFavorite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (product: Product) => {
+    mutationFn: async (product: LimitedProduct) => {
       useFavoritesStore.getState().addFavorite(product);
       return product;
     },
