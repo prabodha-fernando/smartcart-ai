@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import { ShoppingCart } from "lucide-react";
 import { LimitedProduct } from "@/types/product";
 import { useCartStore } from "@/store/cartStore";
@@ -21,9 +24,16 @@ export default function ProductCard({
   };
 
   return (
-    <article className="group relative flex h-full flex-col rounded-[20px] border border-transparent bg-[#f9fafb] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] first:border-teal-700">
+    <motion.article
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -6 }}
+      className="group premium-card h-full p-6 hover:shadow-[0_18px_45px_rgba(15,23,42,0.08)]"
+    >
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative mb-6 h-48 w-full overflow-hidden rounded-xl bg-white">
+        <div className="relative h-56 w-full overflow-hidden rounded-xl bg-white">
           <Image
             src={product.thumbnail}
             alt={product.title}
@@ -34,15 +44,11 @@ export default function ProductCard({
           />
         </div>
 
-        <div className="mb-3 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-emerald-600 label-caps">
-          In Stock
-        </div>
-
-        <h3 className="line-clamp-2 font-display text-2xl font-semibold leading-tight text-slate-950">
+        <h3 className="mt-5 line-clamp-2 font-display text-2xl font-semibold leading-tight text-slate-950">
           {product.title}
         </h3>
 
-        <p className="mt-2 line-clamp-2 text-base leading-6 text-slate-500">
+        <p className="mt-2 line-clamp-2 text-base leading-7 text-slate-500">
           AI-curated product match with a {product.rating.toFixed(1)} customer
           rating.
         </p>
@@ -60,6 +66,6 @@ export default function ProductCard({
           <ShoppingCart size={22} />
         </button>
       </div>
-    </article>
+    </motion.article>
   );
 }

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   getProducts,
   getProductById,
@@ -53,5 +53,22 @@ export function useLimitedProducts(
   return useQuery({
     queryKey: ["limited-products", limit, skip],
     queryFn: () => getLimitedProducts(limit, skip),
+  });
+}
+
+export function useInfiniteLimitedProducts(limit: number = 8) {
+  return useInfiniteQuery({
+    queryKey: ["limited-products", "infinite", limit],
+    queryFn: ({ pageParam }) => getLimitedProducts(limit, pageParam),
+    initialPageParam: 0,
+    // skip = number of products already loaded on the frontend.
+    getNextPageParam: (lastPage, pages) => {
+      const loaded = pages.reduce(
+        (count, page) => count + page.products.length,
+        0
+      );
+
+      return loaded < lastPage.total ? loaded : undefined;
+    },
   });
 }

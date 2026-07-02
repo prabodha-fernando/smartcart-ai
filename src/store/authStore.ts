@@ -9,6 +9,7 @@ interface AuthState {
   hasHydrated: boolean;
 
   login: (user: User, tokens: LoginResponse) => void;
+  updateUser: (updates: Partial<User>) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
   setHasHydrated: (hasHydrated: boolean) => void;
@@ -34,6 +35,13 @@ export const useAuthStore = create<AuthState>()(
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
         });
+        notifyAuthStorageChanged();
+      },
+
+      updateUser: (updates) => {
+        set((state) => ({
+          user: state.user ? { ...state.user, ...updates } : state.user,
+        }));
         notifyAuthStorageChanged();
       },
 
