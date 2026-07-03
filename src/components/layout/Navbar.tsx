@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { FormEvent, useState } from "react";
 import {
+  Heart,
   LogOut,
   Menu,
   Search,
@@ -15,6 +16,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
+import { useFavoritesStore } from "@/store/favoritesStore";
 
 const links = [
   { href: "/", label: "Home" },
@@ -35,6 +37,10 @@ export default function Navbar() {
   const cartCount = useCartStore((state) => state.count());
   const cartHydrated = useCartStore((state) => state.hasHydrated);
   const showCartBadge = cartHydrated && cartCount > 0;
+
+  const favoritesCount = useFavoritesStore((state) => state.favorites.length);
+  const favoritesHydrated = useFavoritesStore((state) => state.hasHydrated);
+  const showFavoritesBadge = favoritesHydrated && favoritesCount > 0;
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -64,6 +70,7 @@ export default function Navbar() {
       : "Search products...";
 
   const badge = cartCount > 99 ? "99+" : cartCount;
+  const favoritesBadge = favoritesCount > 99 ? "99+" : favoritesCount;
 
   return (
     <motion.nav
@@ -131,6 +138,19 @@ export default function Navbar() {
 
           {/* Desktop icon actions */}
           <div className="hidden items-center gap-1 md:flex">
+            <IconAction
+              href="/favorites"
+              label="Favorites"
+              active={isActive("/favorites")}
+            >
+              <Heart size={21} />
+              {showFavoritesBadge && (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-semibold text-white ring-2 ring-white">
+                  {favoritesBadge}
+                </span>
+              )}
+            </IconAction>
+
             <IconAction href="/cart" label="Cart" active={isActive("/cart")}>
               <ShoppingCart size={21} />
               {showCartBadge && (
@@ -156,6 +176,20 @@ export default function Navbar() {
               <LogOut size={20} />
             </button>
           </div>
+
+          {/* Mobile favorites */}
+          <Link
+            href="/favorites"
+            aria-label="Favorites"
+            className="relative inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-50 md:hidden"
+          >
+            <Heart size={21} />
+            {showFavoritesBadge && (
+              <span className="absolute -right-0.5 -top-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-semibold text-white ring-2 ring-white">
+                {favoritesBadge}
+              </span>
+            )}
+          </Link>
 
           {/* Mobile cart */}
           <Link
@@ -213,6 +247,11 @@ export default function Navbar() {
                   {link.href === "/cart" && showCartBadge && (
                     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-700 px-1 text-[11px] font-semibold text-white">
                       {badge}
+                    </span>
+                  )}
+                  {link.href === "/favorites" && showFavoritesBadge && (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-semibold text-white">
+                      {favoritesBadge}
                     </span>
                   )}
                 </Link>
