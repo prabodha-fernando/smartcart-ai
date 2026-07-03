@@ -1,4 +1,5 @@
 import type { AIQueryPlan, LimitedProduct, Product } from "@/types/product";
+import { NVIDIA_MODEL, NVIDIA_URL, streamNvidiaChat } from "@/lib/nvidia";
 
 // Streaming shopping assistant.
 //
@@ -36,8 +37,6 @@ const categories = [
 ];
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://dummyjson.com";
-const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-const MODEL = "meta/llama-3.1-8b-instruct";
 const MAX_PRODUCTS = 4;
 
 interface IncomingMessage {
@@ -149,7 +148,7 @@ async function planQuery(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: NVIDIA_MODEL,
         temperature: 0.1,
         max_tokens: 160,
         messages: [
@@ -260,12 +259,10 @@ async function streamReply({
 
   if (apiKey) {
     try {
-      const wrote = await streamNvidiaReply(
+      const wrote = await streamNvidiaChat(
         {
-          model: MODEL,
           temperature: 0.6,
           max_tokens: 260,
-          stream: true,
           messages: [
             { role: "system", content: REPLY_SYSTEM },
             { role: "system", content: `Candidate products:\n${productContext}` },
@@ -285,62 +282,6 @@ async function streamReply({
   }
 
   send(fallbackReply(products));
-}
-
-// Streams an NVIDIA chat completion, forwarding only the text deltas to `send`.
-// Returns true if any content was written.
-async function streamNvidiaReply(
-  payload: unknown,
-  apiKey: string,
-  send: (text: string) => void
-): Promise<boolean> {
-  const response = await fetch(NVIDIA_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok || !response.body) {
-    return false;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let wrote = false;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("data:")) continue;
-
-      const data = trimmed.slice(5).trim();
-      if (data === "[DONE]" || !data) continue;
-
-      try {
-        const json = JSON.parse(data);
-        const delta: string | undefined = json.choices?.[0]?.delta?.content;
-        if (delta) {
-          send(delta);
-          wrote = true;
-        }
-      } catch {
-        // ignore malformed SSE fragments
-      }
-    }
-  }
-
-  return wrote;
 }
 
 function normalizePlan(value: Partial<AIQueryPlan> | null): AIQueryPlan {

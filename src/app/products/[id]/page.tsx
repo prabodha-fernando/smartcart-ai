@@ -8,6 +8,7 @@ import { useFavoritesStore } from "@/store/favoritesStore";
 import Image from "next/image";
 import Footer from "@/components/layout/Footer";
 import AIAssistant from "@/components/ai/AIAssistant";
+import WhyBuyThis from "@/components/ai/WhyBuyThis";
 import { Heart, ShoppingCart, Star } from "lucide-react";
 import Link from "next/link";
 import { useCartStore } from "@/store/cartStore";
@@ -183,6 +184,10 @@ export default function ProductDetailsPage() {
                 : "Add to Favorites"}
           </button>
         </div>
+      </section>
+
+      <section className="app-container pb-4">
+        <WhyBuyThis product={product} />
       </section>
 
       <section className="app-container py-8">
