@@ -124,10 +124,6 @@ export default function WhyBuyThis({ product }: { product: Product }) {
           </p>
         )}
       </div>
-
-      <p className="mt-4 text-xs text-slate-400">
-        AI-generated from this product&apos;s details.
-      </p>
     </motion.div>
   );
 }
