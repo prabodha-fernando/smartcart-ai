@@ -3,7 +3,7 @@
 import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import EmptyState from "@/components/ui/EmptyState";
-import ProductCard from "@/components/products/ProductCard";
+import FavoriteCard from "@/components/products/FavoriteCard";
 import { useFavoritesStore } from "@/store/favoritesStore";
 import Footer from "@/components/layout/Footer";
 import { Reveal } from "@/components/ui/motion";
@@ -25,7 +25,8 @@ export default function FavoritesPage() {
       return [...favorites].sort((a, b) => a.price - b.price);
     }
 
-    return favorites;
+    // Recently added first.
+    return [...favorites].sort((a, b) => b.addedAt - a.addedAt);
   }, [favorites, sortBy]);
 
   const handleClearAll = () => {
@@ -99,10 +100,10 @@ export default function FavoritesPage() {
               className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4"
             >
               <AnimatePresence mode="popLayout">
-                {sortedFavorites.map((product, index) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
+                {sortedFavorites.map((item, index) => (
+                  <FavoriteCard
+                    key={item.id}
+                    item={item}
                     priority={index < 4}
                   />
                 ))}
