@@ -9,11 +9,24 @@ import {
   useRef,
   useState,
 } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { RotateCcw, Send, Sparkles, UserCircle } from "lucide-react";
-import ProductCard from "@/components/products/ProductCard";
+import {
+  Heart,
+  RotateCcw,
+  Send,
+  ShoppingCart,
+  Sparkles,
+  Star,
+  UserCircle,
+} from "lucide-react";
 import { useAIChat } from "@/hooks/useAIChat";
+import { isOnSale, salePrice, SALE_PERCENT } from "@/lib/sale";
+import { useCartStore } from "@/store/cartStore";
+import { useFavoritesStore } from "@/store/favoritesStore";
 import type { AIChatMessage, LimitedProduct } from "@/types/product";
+import toast from "react-hot-toast";
 
 const SUGGESTIONS = [
   "Best noise-canceling headphones under $200",
@@ -84,8 +97,8 @@ function AIAssistant(
   };
 
   return (
-    <div className="rounded-[1.5rem] border border-slate-200/60 bg-gradient-to-br from-white via-white to-blue-50/70 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur-xl sm:p-8">
-      <div className="flex items-center justify-end gap-4">
+    <div className="rounded-[1.25rem] border border-slate-200/60 bg-gradient-to-br from-white via-white to-blue-50/70 p-4 shadow-[0_18px_52px_rgba(15,23,42,0.09)] backdrop-blur-xl sm:p-5">
+      <div className="flex items-center justify-end gap-3">
         {hasChat && (
           <button
             onClick={reset}
@@ -99,11 +112,11 @@ function AIAssistant(
       </div>
 
       {!hasChat && (
-        <div className="mt-6 text-center">
+        <div className="mt-4 text-center">
           <span className="label-caps inline-flex rounded-full border border-teal-100 bg-white/70 px-3 py-1 text-teal-700">
             Smart shopping concierge
           </span>
-          <h2 className="mt-4 font-display text-3xl font-semibold text-slate-950">
+          <h2 className="mt-3 font-display text-2xl font-semibold text-slate-950">
             What&apos;s on your mind?
           </h2>
         </div>
@@ -113,7 +126,7 @@ function AIAssistant(
       {hasChat && (
         <div
           ref={scrollRef}
-          className="mt-6 max-h-[32rem] space-y-6 overflow-y-auto pr-1"
+          className="mt-4 max-h-[28rem] space-y-4 overflow-y-auto pr-1"
         >
           <AnimatePresence initial={false}>
             {messages.map((message, index) => (
@@ -134,7 +147,7 @@ function AIAssistant(
       {/* Composer */}
       <form
         onSubmit={submit}
-        className="mx-auto mt-6 flex max-w-3xl items-center rounded-full border border-white/80 bg-white/88 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.08)] backdrop-blur focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-700/15"
+        className="mx-auto mt-4 flex max-w-2xl items-center rounded-full border border-white/80 bg-white/88 p-1.5 shadow-[0_12px_28px_rgba(15,23,42,0.07)] backdrop-blur focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-700/15"
       >
         <input
           ref={inputRef}
@@ -145,14 +158,14 @@ function AIAssistant(
               ? "Ask a follow-up..."
               : "What should I buy for university?"
           }
-          className="min-w-0 flex-1 bg-transparent px-5 font-mono text-sm outline-none"
+          className="min-w-0 flex-1 bg-transparent px-4 font-mono text-sm outline-none"
           aria-label="Message the AI assistant"
         />
 
         <button
           type="submit"
           disabled={isStreaming || !input.trim()}
-          className="primary-pill inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          className="primary-pill inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isStreaming ? "Thinking..." : "Ask AI"}
           <Send size={16} />
@@ -165,7 +178,7 @@ function AIAssistant(
 
       {/* Suggestions (only before the first message) */}
       {!hasChat && (
-        <div className="mx-auto mt-4 flex max-w-3xl flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+        <div className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
           <span>Try:</span>
           {SUGGESTIONS.map((prompt) => (
             <button
@@ -200,21 +213,21 @@ function ChatBubble({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
+      className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}
     >
       <span
-        className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+        className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
           isUser
             ? "bg-slate-100 text-slate-500"
             : "bg-teal-700 text-white"
         }`}
       >
-        {isUser ? <UserCircle size={20} /> : <Sparkles size={16} />}
+        {isUser ? <UserCircle size={18} /> : <Sparkles size={15} />}
       </span>
 
       <div className={`min-w-0 max-w-[85%] ${isUser ? "items-end" : "items-start"}`}>
         <div
-          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+          className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
             isUser
               ? "bg-blue-700 text-white"
               : "bg-slate-50 text-slate-700"
@@ -233,9 +246,9 @@ function ChatBubble({
         </div>
 
         {message.products && message.products.length > 0 && (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-3 space-y-2.5">
             {message.products.map((product, index) => (
-              <ProductCard
+              <AIResultProductRow
                 key={product.id}
                 product={product}
                 priority={index < 2}
@@ -245,6 +258,124 @@ function ChatBubble({
         )}
       </div>
     </motion.div>
+  );
+}
+
+function AIResultProductRow({
+  product,
+  priority,
+}: {
+  product: LimitedProduct;
+  priority: boolean;
+}) {
+  const addItem = useCartStore((state) => state.addItem);
+  const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
+  const isFavorite = useFavoritesStore((state) => state.isFavorite(product.id));
+  const onSale = isOnSale(product.id);
+  const displayPrice = salePrice(product.id, product.price);
+  const cartItem: LimitedProduct = onSale
+    ? { ...product, price: displayPrice }
+    : product;
+  const roundedRating = Math.round(product.rating);
+
+  const handleAddToCart = () => {
+    addItem(cartItem);
+    toast.success(`${product.title} added to cart`);
+  };
+
+  const handleToggleFavorite = () => {
+    toggleFavorite(cartItem);
+    toast.success(
+      isFavorite
+        ? "Removed from favorites"
+        : `${product.title} saved to favorites`
+    );
+  };
+
+  return (
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      className="group flex items-center gap-2.5 rounded-2xl border border-slate-200/70 bg-white/92 p-2.5 shadow-[0_10px_28px_rgba(15,23,42,0.07)] backdrop-blur transition hover:border-blue-200 hover:shadow-[0_14px_34px_rgba(15,23,42,0.1)] sm:gap-3 sm:p-3"
+    >
+      <Link
+        href={`/products/${product.id}`}
+        className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-gradient-to-br from-blue-50 via-white to-teal-50 sm:h-20 sm:w-20"
+      >
+        {onSale && (
+          <span className="absolute left-1.5 top-1.5 z-10 rounded-full bg-rose-500 px-1.5 py-0.5 text-[0.58rem] font-bold text-white shadow-sm sm:px-2 sm:text-[0.65rem]">
+            {SALE_PERCENT}% OFF
+          </span>
+        )}
+        <Image
+          src={product.thumbnail}
+          alt={product.title}
+          fill
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+          sizes="96px"
+          className="object-contain p-2 transition-transform duration-300 group-hover:scale-105"
+        />
+      </Link>
+
+      <div className="min-w-0 flex-1">
+        <Link
+          href={`/products/${product.id}`}
+          className="line-clamp-2 font-display text-sm font-semibold leading-tight text-slate-950 transition hover:text-blue-700 sm:text-base"
+        >
+          {product.title}
+        </Link>
+        <p className="mt-0.5 text-xs text-slate-500">
+          ${displayPrice.toFixed(2)} each
+        </p>
+        <div className="mt-1.5 flex items-center gap-0.5 text-amber-400">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Star
+              key={index}
+              size={12}
+              className={
+                index < roundedRating ? "fill-amber-400" : "text-slate-200"
+              }
+            />
+          ))}
+          <span className="ml-1 text-xs font-medium text-slate-500">
+            {product.rating.toFixed(1)}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+        <p className="hidden font-display text-base font-bold text-slate-950 sm:block">
+          ${displayPrice.toFixed(2)}
+        </p>
+        <button
+          type="button"
+          onClick={handleToggleFavorite}
+          aria-label={
+            isFavorite
+              ? `Remove ${product.title} from favorites`
+              : `Save ${product.title} to favorites`
+          }
+          aria-pressed={isFavorite}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-rose-100 hover:bg-rose-50 hover:text-rose-500"
+        >
+          <Heart
+            size={15}
+            className={isFavorite ? "fill-rose-500 text-rose-500" : ""}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          aria-label={`Add ${product.title} to cart`}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-700 text-white shadow-[0_10px_22px_rgba(0,74,198,0.2)] transition hover:bg-blue-800"
+        >
+          <ShoppingCart size={15} />
+        </button>
+      </div>
+    </motion.article>
   );
 }
 

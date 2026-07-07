@@ -67,8 +67,8 @@ When the user asks for an overall product need instead of a specific item (examp
 7. Avoid clarifying questions for broad shopping needs. If the user asks for an overall need, occasion, meal, activity, gift, or "something/anything" (e.g. "need something to cook for dinner", "I don't know what to buy", "something with meat"), set needsMoreInformation=false and requiresApiCall=true. Let the backend first inspect available categories, then products, then choose the best fit.
 8. A specific or narrow product term (e.g. "monopod", "headphones", "wedding dress", "red running shoes") is enough to search directly: requiresApiCall=true, needsMoreInformation=false. Do NOT ask a follow-up for these.
 9. NEVER ask a clarifying question more than once in a conversation. If the CONVERSATION below already shows you asked for clarification, set needsMoreInformation=false and requiresApiCall=true and search using whatever the user has provided so far -- do NOT ask again.
-10. Read the CONVERSATION as one continuous thread. The user's latest message usually answers your previous question or refines an earlier request -- combine them into filters; never restart the conversation.
-11. If the user asks about "this", "that", "it", or asks for an opinion, value judgement, or comparison (e.g. "is that worth for money?", "is this good?", "which is better?", "tell me about it") AND there are products in APPLICATION CONTEXT, do NOT search and do NOT ask what product they mean: set requiresApiCall=false and needsMoreInformation=false, and write a genuine, helpful answer in reply grounded in the price and rating from APPLICATION CONTEXT (e.g. whether the rating justifies the price). Have a real conversation.
+10. Read the CONVERSATION as one continuous thread, but the user's latest message controls the current action. If the latest message clearly asks for a new product/category/use case (for example "show products for gamer"), start a fresh product search for that latest need; do NOT reuse an older category like dinner/groceries.
+11. If the user asks about "this", "that", "it", or asks for an opinion, value judgement, or comparison (e.g. "is that worth for money?", "is this good?", "which is better?", "tell me about it") AND there are products in APPLICATION CONTEXT, do NOT search and do NOT ask what product they mean: set requiresApiCall=false and needsMoreInformation=false, and write a genuine, helpful answer in reply grounded in the price and rating from APPLICATION CONTEXT (e.g. whether the rating justifies the price). Have a real conversation. This rule does NOT apply when the latest message asks to show/find/recommend a new product type or use case.
 ---
 # APPLICATION CONTEXT
 ${appContext ?? "None"}
@@ -86,6 +86,7 @@ Extract ONLY what the user explicitly mentions:
 - purpose (gaming, work, casual, sports, etc.)
 - query: the core product keyword(s), kept SHORT (e.g. "monopod", "dinner", "meat", not a full sentence). Use it when no category clearly fits. A bare product word IS a valid query.
 - sort: how to order results. "price_asc" for cheapest/lowest price/most affordable; "price_desc" for most expensive/premium/priciest; "rating" for best/highest rated; "newest" for newest/latest. Leave "" if the user didn't ask for an order.
+- gamer/gaming/streaming setup: treat as a fresh electronics shopping need. Use query/purpose like "gaming" and do NOT keep dinner/cooking/food filters from earlier turns.
 ---
 # API DECISION RULES
 - requiresApiCall = true ONLY IF product data is needed AND needsMoreInformation is false.
@@ -127,6 +128,7 @@ Rules:
 - Then check whether one available category can satisfy that need.
 - Pick ONLY one category from the available categories when it exists.
 - For meals, cooking, dinner, snacks, meat, chicken, or ingredients, prefer groceries unless the user clearly asks for cookware.
+- For gamer/gaming/streaming setup, prefer electronics categories such as laptops, mobile-accessories, or tablets. Never choose groceries for gamer/gaming unless the latest user message explicitly asks for gaming snacks or food.
 - If none fit, return an empty category.
 
 # CONVERSATION
@@ -162,6 +164,7 @@ Rules:
 - Prefer direct usefulness to the user's need over generic popularity.
 - Respect explicit constraints like budget, category, brand, rating, purpose, color, or sort when present.
 - If the user asks for dinner/cooking/ingredients/meat, prioritize edible grocery items over tools.
+- If the user asks for gamer/gaming/streaming products, choose electronics only. Prefer laptops first, then tablets/phones, then headphones/earphones. Avoid groceries, cooking products, smart speakers, and chargers unless the latest user message explicitly asks for those.
 - If several products fit, rank best match first.
 - The backend will send your chosen products to the final reply step, so do not explain here.
 
