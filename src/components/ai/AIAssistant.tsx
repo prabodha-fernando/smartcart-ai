@@ -1,6 +1,14 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import {
+  FormEvent,
+  forwardRef,
+  Ref,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { RotateCcw, Send, Sparkles, UserCircle } from "lucide-react";
 import ProductCard from "@/components/products/ProductCard";
@@ -14,18 +22,37 @@ const SUGGESTIONS = [
   "Help me set up a cozy home office",
 ];
 
-export default function AIAssistant({
-  contextProduct,
-}: {
-  contextProduct?: LimitedProduct;
-}) {
+export interface AIAssistantHandle {
+  focusComposer: () => void;
+  submitPrompt: (prompt: string) => void;
+}
+
+function AIAssistant(
+  {
+    contextProduct,
+    onFirstPrompt,
+  }: {
+    contextProduct?: LimitedProduct;
+    onFirstPrompt?: (prompt: string) => void;
+  },
+  ref: Ref<AIAssistantHandle>
+) {
   const { messages, isStreaming, error, send, reset } = useAIChat(
     contextProduct ? [contextProduct] : undefined
   );
   const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const hasChat = messages.length > 0;
+
+  useImperativeHandle(ref, () => ({
+    focusComposer: () => inputRef.current?.focus(),
+    submitPrompt: (prompt: string) => {
+      const value = prompt.trim();
+      if (value) send(value);
+    },
+  }));
 
   useEffect(() => {
     const node = scrollRef.current;
@@ -34,20 +61,30 @@ export default function AIAssistant({
     }
   }, [messages]);
 
+  const handlePrompt = (prompt: string) => {
+    const value = prompt.trim();
+    if (!value) return;
+    if (!hasChat && onFirstPrompt) {
+      onFirstPrompt(value);
+      return;
+    }
+    send(value);
+  };
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = input;
     setInput("");
-    send(value);
+    handlePrompt(value);
   };
 
   const ask = (value: string) => {
     setInput("");
-    send(value);
+    handlePrompt(value);
   };
 
   return (
-    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_16px_50px_rgba(15,23,42,0.06)] sm:p-8">
+    <div className="rounded-[1.5rem] border border-slate-200/60 bg-gradient-to-br from-white via-white to-blue-50/70 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur-xl sm:p-8">
       <div className="flex items-center justify-end gap-4">
         {hasChat && (
           <button
@@ -62,9 +99,14 @@ export default function AIAssistant({
       </div>
 
       {!hasChat && (
-        <h2 className="mt-8 text-center font-display text-3xl font-semibold text-slate-950">
-          What&apos;s on your mind?
-        </h2>
+        <div className="mt-6 text-center">
+          <span className="label-caps inline-flex rounded-full border border-teal-100 bg-white/70 px-3 py-1 text-teal-700">
+            Smart shopping concierge
+          </span>
+          <h2 className="mt-4 font-display text-3xl font-semibold text-slate-950">
+            What&apos;s on your mind?
+          </h2>
+        </div>
       )}
 
       {/* Conversation */}
@@ -92,9 +134,10 @@ export default function AIAssistant({
       {/* Composer */}
       <form
         onSubmit={submit}
-        className="mx-auto mt-6 flex max-w-3xl items-center rounded-full border border-slate-300 bg-white p-2 shadow-sm focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-700/15"
+        className="mx-auto mt-6 flex max-w-3xl items-center rounded-full border border-white/80 bg-white/88 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.08)] backdrop-blur focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-700/15"
       >
         <input
+          ref={inputRef}
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder={
@@ -128,7 +171,7 @@ export default function AIAssistant({
             <button
               key={prompt}
               onClick={() => ask(prompt)}
-              className="rounded-full bg-[#eef3ff] px-3 py-1 transition hover:bg-[#e0e9ff]"
+              className="rounded-full border border-white/70 bg-white/75 px-3 py-1 shadow-sm transition hover:bg-[#eef3ff]"
             >
               {prompt}
             </button>
@@ -138,6 +181,8 @@ export default function AIAssistant({
     </div>
   );
 }
+
+export default forwardRef(AIAssistant);
 
 function ChatBubble({
   message,
@@ -189,8 +234,12 @@ function ChatBubble({
 
         {message.products && message.products.length > 0 && (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {message.products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {message.products.map((product, index) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                priority={index < 2}
+              />
             ))}
           </div>
         )}

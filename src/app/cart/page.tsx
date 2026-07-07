@@ -4,12 +4,14 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import EmptyState from "@/components/ui/EmptyState";
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import { useCartStore } from "@/store/cartStore";
 import { Reveal } from "@/components/ui/motion";
 import { AnimatePresence, motion } from "framer-motion";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import toast from "react-hot-toast";
 
 const SHIPPING_FLAT = 4.99;
@@ -22,10 +24,13 @@ export default function CartPage() {
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
   const subtotal = useCartStore((state) => state.subtotal());
+  const [visibleCount, setVisibleCount] = useState(8);
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
   const shipping = items.length > 0 ? SHIPPING_FLAT : 0;
   const total = subtotal + shipping;
+  const visibleItems = items.slice(0, visibleCount);
+  const showLoadMore = visibleCount < items.length;
 
   const handleCheckout = () => {
     toast.success("Order placed! (demo checkout)");
@@ -39,14 +44,17 @@ export default function CartPage() {
 
         <section className="app-container min-h-[calc(100vh-260px)] py-16">
           <Reveal>
-            <h1 className="font-display text-4xl font-bold text-slate-950 md:text-5xl">
-              Your Cart
-            </h1>
-            <p className="mt-4 text-xl text-slate-500">
-              {hasHydrated && totalItems > 0
-                ? `${totalItems} item${totalItems === 1 ? "" : "s"} ready for checkout.`
-                : "Review the products you're ready to purchase."}
-            </p>
+            <div className="rounded-[2rem] border border-slate-200/60 bg-gradient-to-br from-white via-blue-50/70 to-teal-50/60 px-7 py-8 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur-xl md:px-10">
+              <p className="label-caps text-blue-700">Checkout preview</p>
+              <h1 className="mt-3 font-display text-4xl font-bold text-slate-950 md:text-5xl">
+                Your Cart
+              </h1>
+              <p className="mt-4 text-xl text-slate-500">
+                {hasHydrated && totalItems > 0
+                  ? `${totalItems} item${totalItems === 1 ? "" : "s"} ready for checkout.`
+                  : "Review the products you're ready to purchase."}
+              </p>
+            </div>
           </Reveal>
 
           {hasHydrated && items.length === 0 && (
@@ -82,7 +90,7 @@ export default function CartPage() {
                 </div>
 
                 <AnimatePresence mode="popLayout">
-                  {items.map((item) => (
+                  {visibleItems.map((item, index) => (
                     <motion.div
                       key={item.id}
                       layout
@@ -100,6 +108,8 @@ export default function CartPage() {
                           src={item.thumbnail}
                           alt={item.title}
                           fill
+                          loading={index < 4 ? "eager" : "lazy"}
+                          fetchPriority={index < 4 ? "high" : "auto"}
                           sizes="96px"
                           className="object-contain"
                         />
@@ -156,6 +166,19 @@ export default function CartPage() {
                     </motion.div>
                   ))}
                 </AnimatePresence>
+
+                {showLoadMore && (
+                  <div className="pt-8 flex items-center justify-center">
+                    <motion.button
+                      onClick={() => setVisibleCount((count) => count + 8)}
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                      className="inline-flex h-12 items-center justify-center rounded-full bg-blue-700 px-8 text-base font-semibold text-white"
+                    >
+                      Load More
+                    </motion.button>
+                  </div>
+                )}
               </div>
 
               <aside className="h-fit rounded-[1.5rem] border border-slate-100 bg-slate-50/70 p-8 lg:sticky lg:top-28">
@@ -202,6 +225,7 @@ export default function CartPage() {
         </section>
 
         <Footer />
+        <FloatingAIAssistant />
       </main>
     </ProtectedRoute>
   );

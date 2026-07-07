@@ -5,6 +5,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useLimitedProducts } from "@/hooks/useProducts";
 import Image from "next/image";
 import Footer from "@/components/layout/Footer";
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 
 export default function LimitedProductsPage() {
   const { data, isLoading } =
@@ -28,7 +29,7 @@ export default function LimitedProductsPage() {
           )}
 
           <div className="mt-6 grid gap-6 md:grid-cols-4">
-            {data?.products?.map((product) => (
+            {data?.products?.map((product, index) => (
               <div
                 key={product.id}
                 className="premium-card p-6"
@@ -38,6 +39,8 @@ export default function LimitedProductsPage() {
                     src={product.thumbnail}
                     alt={product.title}
                     fill
+                    loading={index < 4 ? "eager" : "lazy"}
+                    fetchPriority={index < 4 ? "high" : "auto"}
                     sizes="(min-width: 768px) 25vw, 100vw"
                     className="object-cover"
                   />
@@ -60,6 +63,7 @@ export default function LimitedProductsPage() {
         </section>
 
         <Footer />
+        <FloatingAIAssistant />
       </main>
     </ProtectedRoute>
   );

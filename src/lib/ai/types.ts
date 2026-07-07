@@ -44,12 +44,18 @@ export interface AIFilters {
   sort: string | null;
 }
 
+export type AIApiAction =
+  | ""
+  | "search_products"
+  | "recommended_products"
+  | "featured_products";
+
 // The structured decision the model returns for every turn. The frontend never
 // sees this — the backend inspects it to decide what to do.
 export interface AIDecision {
   intent: string;
   requiresApiCall: boolean;
-  apiAction: string;
+  apiAction: AIApiAction;
   needsMoreInformation: boolean;
   missingInformation: string[];
   filters: AIFilters;

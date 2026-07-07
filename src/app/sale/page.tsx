@@ -19,6 +19,7 @@ import type { LucideIcon } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import ProductCard from "@/components/products/ProductCard";
 import ProductSkeleton from "@/components/products/ProductSkeleton";
 import { Reveal } from "@/components/ui/motion";
@@ -173,6 +174,7 @@ export default function SalePage() {
         </section>
 
         <Footer />
+        <FloatingAIAssistant />
       </main>
     </ProtectedRoute>
   );

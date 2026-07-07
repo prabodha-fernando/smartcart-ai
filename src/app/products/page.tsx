@@ -8,7 +8,7 @@ import ProductSkeleton from "@/components/products/ProductSkeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import EmptyState from "@/components/ui/EmptyState";
 import Footer from "@/components/layout/Footer";
-import AIAssistant from "@/components/ai/AIAssistant";
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import {
   useSearchProducts,
   useCategories,
@@ -16,7 +16,7 @@ import {
   useInfiniteLimitedProducts,
 } from "@/hooks/useProducts";
 import { Suspense, useState } from "react";
-import { Bot, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { LimitedProduct } from "@/types/product";
 import { useSearchParams } from "next/navigation";
@@ -51,6 +51,7 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("featured");
   const [sortOpen, setSortOpen] = useState(false);
+  const [categoryVisibleCount, setCategoryVisibleCount] = useState(8);
   const debouncedSearch = useDebouncedValue(search);
 
   const {
@@ -76,8 +77,14 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
       : loadedProducts;
 
   const sortedProducts = sortProducts(products || [], sortBy);
+  const isCategoryView = !debouncedSearch && selectedCategory.length > 0;
+  const visibleProducts = isCategoryView
+    ? sortedProducts.slice(0, categoryVisibleCount)
+    : sortedProducts;
   const showLoadMore =
     !debouncedSearch && !selectedCategory && hasNextPage;
+  const showCategoryLoadMore =
+    isCategoryView && categoryVisibleCount < sortedProducts.length;
 
   return (
     <ProtectedRoute>
@@ -87,18 +94,25 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
         <section className="app-container py-16 md:py-20">
           <div className="flex flex-col gap-8">
             <Reveal>
-              <h1 className="font-display text-5xl font-bold leading-tight text-slate-950 md:text-6xl">
-                Explore Products
-              </h1>
-              <p className="mt-4 text-xl text-slate-500">
-                AI-curated selections tailored to your preferences.
-              </p>
+              <div className="rounded-[2rem] border border-slate-200/60 bg-gradient-to-br from-white via-blue-50/70 to-teal-50/60 px-7 py-8 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur-xl md:px-10">
+                <p className="label-caps text-blue-700">Curated catalog</p>
+                <h1 className="mt-3 font-display text-5xl font-bold leading-tight text-slate-950 md:text-6xl">
+                  Explore Products
+                </h1>
+                <p className="mt-4 max-w-2xl text-xl text-slate-500">
+                  AI-curated selections tailored to your preferences, budgets,
+                  and shopping intent.
+                </p>
+              </div>
             </Reveal>
 
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => setSelectedCategory("")}
+                  onClick={() => {
+                    setSelectedCategory("");
+                    setCategoryVisibleCount(8);
+                  }}
                   className={`rounded-full px-6 py-3 text-base font-medium ${
                     selectedCategory === ""
                       ? "bg-blue-700 text-white"
@@ -119,9 +133,10 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
                     ) || []
                   }
                   selectedCategory={selectedCategory}
-                  onSelectCategory={(category) =>
-                    setSelectedCategory(category)
-                  }
+                  onSelectCategory={(category) => {
+                    setSelectedCategory(category);
+                    setCategoryVisibleCount(8);
+                  }}
                 />
               </div>
 
@@ -186,7 +201,10 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
                 type="text"
                 placeholder="Search products..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCategoryVisibleCount(8);
+                }}
                 className="w-full bg-transparent font-mono outline-none"
               />
             </div>
@@ -202,16 +220,16 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
 
           {isError && <ErrorMessage message="Failed to load products." />}
 
-          {!isLoading && !isError && sortedProducts.length === 0 && (
+          {!isLoading && !isError && visibleProducts.length === 0 && (
             <EmptyState
               title="No products found"
               description="Try changing your search keyword or category filter."
             />
           )}
 
-          {!isLoading && !isError && sortedProducts.length > 0 && (
+          {!isLoading && !isError && visibleProducts.length > 0 && (
             <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {sortedProducts.map((product, index) => (
+              {visibleProducts.map((product, index) => (
                 <ProductCard
                   key={product.id}
                   product={product}
@@ -221,38 +239,29 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
             </div>
           )}
 
-          {!isLoading && !isError && showLoadMore && (
+          {!isLoading && !isError && (showLoadMore || showCategoryLoadMore) && (
             <div className="mt-24 flex items-center justify-center">
               <motion.button
-                disabled={isFetchingNextPage}
-                onClick={() => fetchNextPage()}
+                disabled={showLoadMore && isFetchingNextPage}
+                onClick={() => {
+                  if (showCategoryLoadMore) {
+                    setCategoryVisibleCount((count) => count + 8);
+                    return;
+                  }
+                  fetchNextPage();
+                }}
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 className="inline-flex h-12 items-center justify-center rounded-full bg-blue-700 px-8 text-base font-semibold text-white disabled:opacity-40"
               >
-                {isFetchingNextPage ? "Loading..." : "Load More"}
+                {showLoadMore && isFetchingNextPage ? "Loading..." : "Load More"}
               </motion.button>
             </div>
           )}
         </section>
 
-        <section id="products-ai" className="app-container pb-10">
-          <AIAssistant />
-        </section>
-
-        <button
-          onClick={() =>
-            document
-              .getElementById("products-ai")
-              ?.scrollIntoView({ behavior: "smooth" })
-          }
-          className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-[0_16px_40px_rgba(0,74,198,0.35)] motion-safe:transition motion-safe:hover:scale-105 md:bottom-10 md:right-10 md:h-16 md:w-16"
-          aria-label="Open AI assistant"
-        >
-          <Bot size={26} />
-        </button>
-
         <Footer />
+        <FloatingAIAssistant />
       </main>
     </ProtectedRoute>
   );

@@ -71,21 +71,23 @@ export default function FavoriteCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.94 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="group premium-card flex h-full flex-col p-6"
+      className="group relative flex h-full flex-col overflow-hidden rounded-[1.25rem] border border-slate-200/70 bg-white/90 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.08)] backdrop-blur transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_24px_65px_rgba(15,23,42,0.12)]"
     >
+      <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-rose-300/70 to-transparent" />
       <Link href={`/products/${item.id}`} className="block">
-        <div className="relative h-52 w-full overflow-hidden rounded-xl bg-white">
+        <div className="relative h-52 w-full overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-blue-50 via-white to-teal-50">
           <Image
             src={item.thumbnail}
             alt={item.title}
             fill
             loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
             className="object-contain transition-transform duration-500 group-hover:scale-105"
           />
         </div>
 
-        <h3 className="mt-5 line-clamp-2 font-display text-2xl font-semibold leading-tight text-slate-950">
+        <h3 className="mt-5 line-clamp-2 font-display text-[1.35rem] font-semibold leading-tight text-slate-950">
           {item.title}
         </h3>
       </Link>
@@ -146,7 +148,7 @@ export default function FavoriteCard({
         ) : item.note ? (
           <button
             onClick={startEditing}
-            className="flex w-full items-start gap-2 rounded-xl bg-amber-50 p-3 text-left transition hover:bg-amber-100"
+            className="flex w-full items-start gap-2 rounded-xl border border-amber-100 bg-amber-50/80 p-3 text-left transition hover:bg-amber-100"
           >
             <StickyNote size={15} className="mt-0.5 shrink-0 text-amber-500" />
             <span className="flex-1 text-sm text-slate-700">{item.note}</span>
@@ -172,14 +174,14 @@ export default function FavoriteCard({
           <button
             onClick={handleRemove}
             aria-label={`Remove ${item.title} from favorites`}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition hover:bg-rose-100"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:shadow-md"
           >
             <Trash2 size={19} />
           </button>
           <button
             onClick={handleAddToCart}
             aria-label={`Add ${item.title} to cart`}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-700 text-white transition hover:bg-blue-700"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)] transition hover:bg-blue-700 hover:shadow-[0_14px_28px_rgba(0,74,198,0.24)]"
           >
             <ShoppingCart size={20} />
           </button>

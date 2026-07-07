@@ -2,25 +2,35 @@
 
 import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { useProduct } from "@/hooks/useProducts";
+import { useProduct, useProductsByCategory } from "@/hooks/useProducts";
 import { useParams } from "next/navigation";
 import { useFavoritesStore } from "@/store/favoritesStore";
 import Image from "next/image";
 import Footer from "@/components/layout/Footer";
 import AIAssistant from "@/components/ai/AIAssistant";
+import FloatingAIAssistant, {
+  type FloatingAIAssistantHandle,
+} from "@/components/ai/FloatingAIAssistant";
 import WhyBuyThis from "@/components/ai/WhyBuyThis";
+import ProductCard from "@/components/products/ProductCard";
 import { Heart, ShoppingCart, Star } from "lucide-react";
 import Link from "next/link";
 import { useCartStore } from "@/store/cartStore";
 import { useAddFavorite, useRemoveFavorite } from "@/hooks/useFavorites";
 import { isOnSale, salePrice, SALE_PERCENT } from "@/lib/sale";
 import toast from "react-hot-toast";
+import { useRef, useState } from "react";
 
 export default function ProductDetailsPage() {
   const params = useParams();
   const id = params.id as string;
+  const floatingAssistantRef = useRef<FloatingAIAssistantHandle>(null);
+  const [selectedImage, setSelectedImage] = useState("");
 
   const { data: product, isLoading, isError } = useProduct(id);
+  const { data: categoryProducts } = useProductsByCategory(
+    product?.category ?? ""
+  );
 
   const isFavorite = useFavoritesStore(
   (state) => state.isFavorite(product?.id || 0)
@@ -55,6 +65,30 @@ export default function ProductDetailsPage() {
 
   const onSale = isOnSale(product.id);
   const displayPrice = salePrice(product.id, product.price);
+  const galleryImages = Array.from(
+    new Set([product.thumbnail, ...(product.images ?? [])])
+  );
+  const activeImage = galleryImages.includes(selectedImage)
+    ? selectedImage
+    : product.thumbnail;
+  const assistantProduct = {
+    id: product.id,
+    title: product.title,
+    price: product.price,
+    rating: product.rating,
+    thumbnail: product.thumbnail,
+  };
+  const frequentlyBoughtTogether =
+    categoryProducts?.products
+      .filter((item) => item.id !== product.id)
+      .slice(0, 4)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        rating: item.rating,
+        thumbnail: item.thumbnail,
+      })) ?? [];
 
   return (
     <ProtectedRoute>
@@ -84,10 +118,11 @@ export default function ProductDetailsPage() {
             </span>
           <div className="relative h-96 w-full overflow-hidden rounded-2xl bg-gray-50">
             <Image
-              src={product.thumbnail}
+              src={activeImage}
               alt={product.title}
               fill
               loading="eager"
+              fetchPriority="high"
               sizes="(min-width: 1024px) 50vw, 100vw"
               className="object-contain"
             />
@@ -95,19 +130,29 @@ export default function ProductDetailsPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-4 gap-3">
-            {product.images?.map((image) => (
-              <div
+            {galleryImages.map((image, index) => (
+              <button
+                type="button"
                 key={image}
-                className="relative h-24 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                onClick={() => setSelectedImage(image)}
+                aria-label={`View ${product.title} image ${index + 1}`}
+                aria-pressed={activeImage === image}
+                className={`relative h-24 w-full overflow-hidden rounded-xl border bg-slate-50 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-700/25 ${
+                  activeImage === image
+                    ? "border-blue-700 shadow-[0_12px_30px_rgba(0,74,198,0.16)]"
+                    : "border-slate-200"
+                }`}
               >
                 <Image
                   src={image}
-                  alt={product.title}
+                  alt={`${product.title} thumbnail ${index + 1}`}
                   fill
+                  loading="eager"
+                  fetchPriority={activeImage === image || index === 0 ? "high" : "auto"}
                   sizes="(min-width: 1024px) 12vw, 25vw"
                   className="object-contain p-2"
                 />
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -197,13 +242,10 @@ export default function ProductDetailsPage() {
       <section className="app-container py-8">
         <div className="grid rounded-[1.5rem] border border-blue-100 bg-[#eef3ff] p-8 lg:grid-cols-[1.5fr_0.8fr]">
           <AIAssistant
-            contextProduct={{
-              id: product.id,
-              title: product.title,
-              price: product.price,
-              rating: product.rating,
-              thumbnail: product.thumbnail,
-            }}
+            contextProduct={assistantProduct}
+            onFirstPrompt={(prompt) =>
+              floatingAssistantRef.current?.openWithPrompt(prompt)
+            }
           />
           <div className="hidden items-center justify-center lg:flex">
             <div className="flex h-72 w-72 items-center justify-center rounded-full bg-blue-100 text-blue-300">
@@ -218,33 +260,25 @@ export default function ProductDetailsPage() {
           <h2 className="font-display text-2xl font-semibold text-slate-950">
             Frequently Bought Together
           </h2>
-          <Link href="/products" className="text-sm font-semibold text-blue-700">
+          <Link
+            href={`/categories/${product.category}`}
+            className="text-sm font-semibold text-blue-700"
+          >
             View All →
           </Link>
         </div>
 
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {product.images?.slice(0, 4).map((image, index) => (
-            <div key={image} className="premium-card p-5">
-              <div className="relative h-44 rounded-xl bg-white">
-                <Image
-                  src={image}
-                  alt={`${product.title} accessory`}
-                  fill
-                  sizes="(min-width: 1024px) 25vw, 50vw"
-                  className="object-contain"
-                />
-              </div>
-              <p className="mt-4 label-caps text-slate-500">
-                Accessories
-              </p>
-              <h3 className="mt-2 font-semibold text-slate-950">
-                {["Magic Mouse", "Premium Sleeve", "USB-C Hub", "Travel Case"][index] || product.title}
-              </h3>
-              <p className="mt-3 font-semibold">${(79 + index * 40).toFixed(2)}</p>
-            </div>
-          ))}
-        </div>
+        {frequentlyBoughtTogether.length > 0 ? (
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {frequentlyBoughtTogether.map((item, index) => (
+              <ProductCard key={item.id} product={item} priority={index < 2} />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-6 rounded-2xl bg-slate-50 p-6 text-sm text-slate-500">
+            No other products found in this category right now.
+          </p>
+        )}
       </section>
 
       <section className="app-container grid gap-10 border-t border-slate-200 py-16 lg:grid-cols-[0.45fr_1fr]">
@@ -279,6 +313,10 @@ export default function ProductDetailsPage() {
       </section>
 
       <Footer />
+      <FloatingAIAssistant
+        ref={floatingAssistantRef}
+        contextProduct={assistantProduct}
+      />
     </main>
     </ProtectedRoute>
   );

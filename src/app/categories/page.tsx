@@ -3,6 +3,7 @@
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import ProductSkeleton from "@/components/products/ProductSkeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import EmptyState from "@/components/ui/EmptyState";
@@ -29,12 +30,15 @@ export default function CategoriesPage() {
 
         <section className="app-container pb-16">
           <Reveal>
-            <h1 className="font-display text-4xl font-bold text-slate-950 md:text-5xl">
-              Shop by Category
-            </h1>
-            <p className="mt-4 text-xl text-slate-500">
-              Browse our AI-curated collections by category.
-            </p>
+            <div className="rounded-[2rem] border border-slate-200/60 bg-gradient-to-br from-white via-blue-50/70 to-teal-50/60 px-7 py-8 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur-xl md:px-10">
+              <p className="label-caps text-blue-700">Collections</p>
+              <h1 className="mt-3 font-display text-4xl font-bold text-slate-950 md:text-5xl">
+                Shop by Category
+              </h1>
+              <p className="mt-4 max-w-2xl text-xl text-slate-500">
+                Browse our AI-curated collections by category.
+              </p>
+            </div>
           </Reveal>
 
           {isLoading && (
@@ -79,6 +83,7 @@ export default function CategoriesPage() {
         </section>
 
         <Footer />
+        <FloatingAIAssistant />
       </main>
     </ProtectedRoute>
   );

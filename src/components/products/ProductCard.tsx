@@ -57,12 +57,13 @@ export default function ProductCard({
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -6 }}
-      className="group premium-card flex h-full flex-col p-6 hover:shadow-[0_18px_45px_rgba(15,23,42,0.08)]"
+      className="group relative flex h-full flex-col overflow-hidden rounded-[1.25rem] border border-slate-200/70 bg-white/90 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.08)] backdrop-blur transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_24px_65px_rgba(15,23,42,0.12)]"
     >
+      <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/70 to-transparent" />
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative h-56 w-full overflow-hidden rounded-xl bg-white">
+        <div className="relative h-56 w-full overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-blue-50 via-white to-teal-50">
           {onSale && (
-            <span className="absolute left-3 top-3 z-10 rounded-full bg-rose-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
+            <span className="absolute left-3 top-3 z-10 rounded-full bg-rose-500 px-3 py-1 text-xs font-bold text-white shadow-[0_10px_22px_rgba(225,29,72,0.24)]">
               {SALE_PERCENT}% OFF
             </span>
           )}
@@ -70,7 +71,8 @@ export default function ProductCard({
             src={product.thumbnail}
             alt={product.title}
             fill
-            loading={priority ? "eager" : "lazy"}
+            loading="eager"
+            fetchPriority={priority ? "high" : "auto"}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
             className="object-contain transition-transform duration-500 group-hover:scale-105"
           />
@@ -83,7 +85,7 @@ export default function ProductCard({
                 : `Save ${product.title} to favorites`
             }
             aria-pressed={isFavorite}
-            className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm backdrop-blur transition hover:scale-110 hover:text-rose-500"
+            className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white/85 text-slate-500 shadow-sm backdrop-blur transition hover:scale-110 hover:text-rose-500"
           >
             <Heart
               size={19}
@@ -92,7 +94,7 @@ export default function ProductCard({
           </button>
         </div>
 
-        <h3 className="mt-5 line-clamp-2 font-display text-2xl font-semibold leading-tight text-slate-950">
+        <h3 className="mt-5 line-clamp-2 font-display text-[1.35rem] font-semibold leading-tight text-slate-950">
           {product.title}
         </h3>
 
@@ -127,7 +129,7 @@ export default function ProductCard({
         </span>
         <button
           onClick={handleAddToCart}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-700 text-white transition group-hover:bg-blue-700"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)] transition group-hover:bg-blue-700 group-hover:shadow-[0_14px_28px_rgba(0,74,198,0.24)]"
           aria-label={`Add ${product.title} to cart`}
         >
           <ShoppingCart size={22} />
