@@ -4,6 +4,7 @@ import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import EmptyState from "@/components/ui/EmptyState";
 import FavoriteCard from "@/components/products/FavoriteCard";
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import { useFavoritesStore } from "@/store/favoritesStore";
 import Footer from "@/components/layout/Footer";
 import { Reveal } from "@/components/ui/motion";
@@ -19,6 +20,7 @@ export default function FavoritesPage() {
   const hasHydrated = useFavoritesStore((state) => state.hasHydrated);
 
   const [sortBy, setSortBy] = useState<"recent" | "price">("recent");
+  const [visibleCount, setVisibleCount] = useState(8);
 
   const sortedFavorites = useMemo(() => {
     if (sortBy === "price") {
@@ -28,6 +30,9 @@ export default function FavoritesPage() {
     // Recently added first.
     return [...favorites].sort((a, b) => b.addedAt - a.addedAt);
   }, [favorites, sortBy]);
+
+  const visibleFavorites = sortedFavorites.slice(0, visibleCount);
+  const showLoadMore = visibleCount < sortedFavorites.length;
 
   const handleClearAll = () => {
     if (favorites.length === 0) return;
@@ -43,25 +48,29 @@ export default function FavoritesPage() {
         <section className="app-container min-h-[calc(100vh-260px)] py-16">
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <Reveal>
-              <h1 className="font-display text-4xl font-bold text-slate-950 md:text-5xl">
-                Saved Products
-              </h1>
-              <p className="mt-4 text-xl text-slate-500">
-                {hasHydrated && favorites.length > 0
-                  ? `${favorites.length} item${
-                      favorites.length === 1 ? "" : "s"
-                    } in your curated collection.`
-                  : "Manage your curated collection of AI-recommended products."}
-              </p>
+              <div className="rounded-[2rem] border border-slate-200/60 bg-gradient-to-br from-white via-blue-50/70 to-rose-50/60 px-7 py-8 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur-xl md:px-10">
+                <p className="label-caps text-rose-600">Wishlist</p>
+                <h1 className="mt-3 font-display text-4xl font-bold text-slate-950 md:text-5xl">
+                  Saved Products
+                </h1>
+                <p className="mt-4 text-xl text-slate-500">
+                  {hasHydrated && favorites.length > 0
+                    ? `${favorites.length} item${
+                        favorites.length === 1 ? "" : "s"
+                      } in your curated collection.`
+                    : "Manage your curated collection of AI-recommended products."}
+                </p>
+              </div>
             </Reveal>
 
             {hasHydrated && favorites.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() =>
-                    setSortBy((current) =>
-                      current === "recent" ? "price" : "recent"
-                    )
+                    setSortBy((current) => {
+                      setVisibleCount(8);
+                      return current === "recent" ? "price" : "recent";
+                    })
                   }
                   className="soft-pill inline-flex items-center gap-3 px-6 py-3 text-lg font-medium"
                 >
@@ -95,24 +104,40 @@ export default function FavoritesPage() {
           )}
 
           {favorites.length > 0 && (
-            <motion.div
-              layout
-              className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4"
-            >
-              <AnimatePresence mode="popLayout">
-                {sortedFavorites.map((item, index) => (
-                  <FavoriteCard
-                    key={item.id}
-                    item={item}
-                    priority={index < 4}
-                  />
-                ))}
-              </AnimatePresence>
-            </motion.div>
+            <>
+              <motion.div
+                layout
+                className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4"
+              >
+                <AnimatePresence mode="popLayout">
+                  {visibleFavorites.map((item, index) => (
+                    <FavoriteCard
+                      key={item.id}
+                      item={item}
+                      priority={index < 4}
+                    />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+
+              {showLoadMore && (
+                <div className="mt-24 flex items-center justify-center">
+                  <motion.button
+                    onClick={() => setVisibleCount((count) => count + 8)}
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    className="inline-flex h-12 items-center justify-center rounded-full bg-blue-700 px-8 text-base font-semibold text-white"
+                  >
+                    Load More
+                  </motion.button>
+                </div>
+              )}
+            </>
           )}
         </section>
 
         <Footer />
+        <FloatingAIAssistant />
       </main>
     </ProtectedRoute>
   );

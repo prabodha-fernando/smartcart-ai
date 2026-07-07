@@ -77,7 +77,7 @@ export default function Navbar() {
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/80 shadow-[0_8px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl"
+      className="sticky top-0 z-50 border-b border-white/70 bg-white/72 shadow-[0_12px_38px_rgba(15,23,42,0.07)] backdrop-blur-2xl"
     >
       <div className="app-container grid h-20 grid-cols-[1fr_auto_1fr] items-center gap-4">
         {/* Left: nav links (desktop) + menu toggle (mobile) */}
@@ -96,10 +96,10 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   isActive(link.href)
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                    ? "bg-blue-700 text-white shadow-[0_10px_22px_rgba(0,74,198,0.18)]"
+                    : "text-slate-600 hover:bg-white hover:text-slate-950 hover:shadow-sm"
                 }`}
               >
                 {link.label}
@@ -113,7 +113,7 @@ export default function Navbar() {
           href="/"
           className="group flex shrink-0 items-center justify-center gap-2.5"
         >
-          <span className="brand-gradient inline-flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-[0_8px_20px_rgba(0,83,219,0.35)] transition-transform group-hover:scale-105">
+          <span className="brand-gradient inline-flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-[0_14px_30px_rgba(0,83,219,0.28)] ring-1 ring-white/40 transition-transform group-hover:scale-105">
             <ShoppingBag size={20} />
           </span>
           <span className="font-display text-xl font-bold tracking-tight text-slate-950">
@@ -124,7 +124,7 @@ export default function Navbar() {
         {/* Right: search + actions */}
         <div className="flex items-center justify-end gap-1">
           <form onSubmit={handleSearch} className="hidden xl:flex">
-            <label className="flex w-56 items-center gap-2.5 rounded-full border border-transparent bg-slate-100/80 px-4 py-2.5 text-slate-500 transition focus-within:border-blue-200 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-700/15">
+            <label className="flex w-60 items-center gap-2.5 rounded-full border border-white/70 bg-white/70 px-4 py-2.5 text-slate-500 shadow-sm transition focus-within:border-blue-200 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-700/15">
               <Search size={18} />
               <input
                 value={search}

@@ -78,11 +78,19 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Brand type — exposed as font-heading / font-caps utilities */
+  --font-heading: "Hanken Grotesk", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-caps: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
+/* Component classes below are composed from Tailwind utilities via @apply.
+   Values that have no utility (font stacks, gradients, min() width, custom
+   shadows) use Tailwind arbitrary values referencing the tokens above. The
+   keyframe animations further down stay as CSS — they have no utility form. */
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  @apply bg-background text-foreground;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
 }
@@ -91,80 +99,43 @@ h1,
 h2,
 h3,
 .font-display {
-  font-family: "Hanken Grotesk", Inter, ui-sans-serif, system-ui, sans-serif;
+  @apply font-heading;
 }
 
 .label-caps {
-  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  @apply font-caps text-[0.72rem] uppercase tracking-[0.08em];
 }
 
 .app-container {
-  width: min(100% - 40px, 1280px);
-  margin-inline: auto;
+  @apply mx-auto w-[min(100%_-_40px,1280px)];
 }
 
 .premium-card {
-  border-radius: var(--radius-card);
-  background: var(--surface-muted);
-  box-shadow: var(--shadow-card);
+  @apply rounded-[var(--radius-card)] bg-[var(--surface-muted)] shadow-[var(--shadow-card)];
 }
 
 .primary-pill {
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--primary-contrast);
-  transition: background-color 160ms ease, transform 160ms ease;
-}
-
-.primary-pill:hover {
-  background: var(--primary-hover);
+  @apply rounded-full bg-primary text-[var(--primary-contrast)] transition-[background-color,transform] duration-[160ms] ease-[ease] hover:bg-primary-hover;
 }
 
 .soft-pill {
-  border-radius: var(--radius-pill);
-  background: var(--surface-soft);
-  color: var(--text-strong);
+  @apply rounded-full bg-surface-soft text-[var(--text-strong)];
 }
 
 .brand-gradient {
-  background-image: var(--brand-gradient);
+  @apply bg-[image:var(--brand-gradient)];
 }
 
 .brand-text {
-  background-image: var(--brand-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  @apply bg-[image:var(--brand-gradient)] bg-clip-text text-transparent;
 }
 
 .input-base {
-  width: 100%;
-  border-radius: var(--radius-field);
-  border: 1px solid var(--border);
-  background: var(--background);
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  color: var(--text-strong);
-  outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.input-base::placeholder {
-  color: var(--placeholder);
-}
-
-.input-base:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--ring-primary);
+  @apply w-full rounded-[var(--radius-field)] border border-border bg-background px-4 py-3 text-sm text-[var(--text-strong)] outline-none transition-[border-color,box-shadow] duration-150 ease-[ease] placeholder:text-[var(--placeholder)] focus:border-[var(--border-focus)] focus:shadow-[0_0_0_3px_var(--ring-primary)];
 }
 
 .skeleton-shimmer {
-  position: relative;
-  overflow: hidden;
-  background: var(--skeleton-base);
+  @apply relative overflow-hidden bg-[var(--skeleton-base)];
 }
 
 .skeleton-shimmer::after {

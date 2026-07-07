@@ -16,6 +16,7 @@ export const NVIDIA_BASE_URL =
 export const NVIDIA_MODEL = "meta/llama-3.1-8b-instruct";
 
 export type NvidiaMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
+type NvidiaJsonResponse = Record<string, unknown>;
 
 /**
  * Generic NVIDIA NIM AI caller
@@ -30,7 +31,7 @@ export const callNvidiaAI = async (params: {
   prompt: string;
   temperature?: number;
   maxTokens?: number;
-}): Promise<any> => {
+}): Promise<NvidiaJsonResponse> => {
   const client = new OpenAI({
     baseURL: NVIDIA_BASE_URL,
     apiKey: process.env.NVIDIA_NIM_API_KEY!,
@@ -58,7 +59,7 @@ export const callNvidiaAI = async (params: {
       throw new Error("Empty AI response");
     }
 
-    return JSON.parse(content);
+    return JSON.parse(content) as NvidiaJsonResponse;
   } catch (error) {
     console.error("NVIDIA AI Error:", error);
 

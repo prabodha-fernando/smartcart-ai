@@ -8,9 +8,13 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ProductSkeleton from "@/components/products/ProductSkeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import AIAssistant from "@/components/ai/AIAssistant";
+import FloatingAIAssistant, {
+  type FloatingAIAssistantHandle,
+} from "@/components/ai/FloatingAIAssistant";
 import { Reveal, StaggerGroup, MotionItem, fadeUpItem, staggerParent } from "@/components/ui/motion";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRef } from "react";
 import {
   ArrowRight,
   Home,
@@ -26,6 +30,7 @@ import {
 
 export default function HomePage() {
   const { data, isLoading, isError } = useProducts();
+  const floatingAssistantRef = useRef<FloatingAIAssistantHandle>(null);
   const categories = [
     { label: "Electronics", icon: Smartphone, meta: "1.2k items", slug: "smartphones" },
     { label: "Beauty", icon: Sparkles, meta: "840 items", slug: "beauty" },
@@ -42,11 +47,14 @@ export default function HomePage() {
 
         <section className="app-container grid items-center gap-12 py-16 lg:grid-cols-2">
           <motion.div initial="hidden" animate="visible" variants={staggerParent}>
+            <motion.p variants={fadeUpItem} className="label-caps text-blue-700">
+              AI powered marketplace
+            </motion.p>
             <motion.h1
               variants={fadeUpItem}
-              className="font-display text-4xl font-bold leading-tight text-slate-950 md:text-5xl"
+              className="mt-4 font-display text-5xl font-bold leading-tight text-slate-950 md:text-6xl"
             >
-              Find Better Products with AI
+              Find Better Products with <span className="brand-text">AI</span>
             </motion.h1>
             <motion.p
               variants={fadeUpItem}
@@ -63,12 +71,13 @@ export default function HomePage() {
                 Explore Products
                 <ArrowRight size={16} />
               </Link>
-              <a
-                href="#assistant"
+              <button
+                type="button"
+                onClick={() => floatingAssistantRef.current?.open()}
                 className="soft-pill px-7 py-3 text-sm font-semibold"
               >
                 Ask AI
-              </a>
+              </button>
             </motion.div>
           </motion.div>
 
@@ -76,7 +85,7 @@ export default function HomePage() {
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-            className="rounded-[2rem] bg-[#eef3ff] p-12"
+            className="rounded-[2rem] border border-slate-200/60 bg-gradient-to-br from-white via-blue-50/70 to-teal-50/60 p-8 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur-xl sm:p-12"
           >
             <div className="mx-auto max-w-md rounded-3xl bg-white/80 p-7 shadow-[0_28px_80px_rgba(15,23,42,0.16)]">
               <div className="mb-5 h-5 w-44 rounded-full bg-blue-100" />
@@ -101,7 +110,11 @@ export default function HomePage() {
 
         {!isLoading && !isError && data?.products && (
           <section id="assistant" className="app-container py-6">
-            <AIAssistant />
+            <AIAssistant
+              onFirstPrompt={(prompt) =>
+                floatingAssistantRef.current?.openWithPrompt(prompt)
+              }
+            />
           </section>
         )}
 
@@ -241,6 +254,7 @@ export default function HomePage() {
         </section>
 
         <Footer />
+        <FloatingAIAssistant ref={floatingAssistantRef} />
       </main>
     </ProtectedRoute>
   );
