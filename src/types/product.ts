@@ -97,19 +97,13 @@ export interface AIChatMessage {
   products?: LimitedProduct[];
 }
 
-// The search plan the model derives from the conversation. `search` is false
-// for follow-up turns that reference products already on screen.
-export interface AIQueryPlan {
-  search: boolean;
-  category: string | null;
-  maxPrice: number | null;
-  minRating: number | null;
-  keywords: string[];
-}
+// The AI decision/filter schema lives in @/lib/ai/types (backend-only).
 
-// The JSON frame the streaming route emits before the prose tokens.
-export interface AIChatMeta {
-  query: AIQueryPlan;
+// What /api/ai/chat returns to the client: the model's reply plus any products
+// the backend resolved from the decision.
+export interface AIChatResponse {
+  reply: string;
   products: LimitedProduct[];
+  intent: string;
   isNewSearch: boolean;
 }

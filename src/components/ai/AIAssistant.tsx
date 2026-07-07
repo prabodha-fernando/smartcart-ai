@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { RotateCcw, Send, Sparkles, UserCircle } from "lucide-react";
 import ProductCard from "@/components/products/ProductCard";
 import { useAIChat } from "@/hooks/useAIChat";
-import type { AIChatMessage } from "@/types/product";
+import type { AIChatMessage, LimitedProduct } from "@/types/product";
 
 const SUGGESTIONS = [
   "Best noise-canceling headphones under $200",
@@ -14,8 +14,14 @@ const SUGGESTIONS = [
   "Help me set up a cozy home office",
 ];
 
-export default function AIAssistant() {
-  const { messages, isStreaming, error, send, reset } = useAIChat();
+export default function AIAssistant({
+  contextProduct,
+}: {
+  contextProduct?: LimitedProduct;
+}) {
+  const { messages, isStreaming, error, send, reset } = useAIChat(
+    contextProduct ? [contextProduct] : undefined
+  );
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 

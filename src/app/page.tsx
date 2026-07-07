@@ -202,7 +202,7 @@ export default function HomePage() {
             </h3>
             <Zap className="m-auto text-blue-300" size={74} />
             <Link
-              href="/products"
+              href="/sale"
               className="rounded-full bg-white px-5 py-3 text-center text-sm font-semibold"
             >
               Shop Sale
