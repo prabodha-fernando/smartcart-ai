@@ -7,6 +7,7 @@ import { Heart, ShoppingCart, Star } from "lucide-react";
 import { LimitedProduct } from "@/types/product";
 import { useCartStore } from "@/store/cartStore";
 import { useFavoritesStore } from "@/store/favoritesStore";
+import { isOnSale, salePrice, SALE_PERCENT } from "@/lib/sale";
 import toast from "react-hot-toast";
 
 export default function ProductCard({
@@ -22,15 +23,22 @@ export default function ProductCard({
     state.isFavorite(product.id)
   );
 
+  const onSale = isOnSale(product.id);
+  const displayPrice = salePrice(product.id, product.price);
+  // Cart/favorites carry the discounted price so the deal follows the product.
+  const saleItem: LimitedProduct = onSale
+    ? { ...product, price: displayPrice }
+    : product;
+
   const handleAddToCart = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    addItem(product);
+    addItem(saleItem);
     toast.success(`${product.title} added to cart`);
   };
 
   const handleToggleFavorite = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    toggleFavorite(product);
+    toggleFavorite(saleItem);
     toast.success(
       isFavorite
         ? "Removed from favorites"
@@ -53,6 +61,11 @@ export default function ProductCard({
     >
       <Link href={`/products/${product.id}`} className="block">
         <div className="relative h-56 w-full overflow-hidden rounded-xl bg-white">
+          {onSale && (
+            <span className="absolute left-3 top-3 z-10 rounded-full bg-rose-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
+              {SALE_PERCENT}% OFF
+            </span>
+          )}
           <Image
             src={product.thumbnail}
             alt={product.title}
@@ -102,8 +115,15 @@ export default function ProductCard({
       </Link>
 
       <div className="mt-auto flex items-center justify-between pt-6">
-        <span className="font-display text-2xl font-bold text-slate-950">
-          ${product.price.toFixed(2)}
+        <span className="flex items-baseline gap-2">
+          <span className="font-display text-2xl font-bold text-slate-950">
+            ${displayPrice.toFixed(2)}
+          </span>
+          {onSale && (
+            <span className="text-sm text-slate-400 line-through">
+              ${product.price.toFixed(2)}
+            </span>
+          )}
         </span>
         <button
           onClick={handleAddToCart}

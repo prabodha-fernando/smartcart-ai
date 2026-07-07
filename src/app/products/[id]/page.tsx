@@ -13,6 +13,7 @@ import { Heart, ShoppingCart, Star } from "lucide-react";
 import Link from "next/link";
 import { useCartStore } from "@/store/cartStore";
 import { useAddFavorite, useRemoveFavorite } from "@/hooks/useFavorites";
+import { isOnSale, salePrice, SALE_PERCENT } from "@/lib/sale";
 import toast from "react-hot-toast";
 
 export default function ProductDetailsPage() {
@@ -51,6 +52,9 @@ export default function ProductDetailsPage() {
         </ProtectedRoute>
     );
   }
+
+  const onSale = isOnSale(product.id);
+  const displayPrice = salePrice(product.id, product.price);
 
   return (
     <ProtectedRoute>
@@ -128,14 +132,14 @@ export default function ProductDetailsPage() {
 
           <div className="mt-6 flex items-center gap-4">
             <span className="font-display text-4xl font-bold text-slate-950 md:text-5xl">
-              ${product.price.toFixed(2)}
+              ${displayPrice.toFixed(2)}
             </span>
 
             <span className="text-xl text-slate-400 line-through">
-              ${(product.price * 1.12).toFixed(2)}
+              ${(onSale ? product.price : product.price * 1.12).toFixed(2)}
             </span>
             <span className="rounded-md bg-red-50 px-3 py-1 text-sm font-medium text-red-500">
-              -{Math.round(product.discountPercentage)}%
+              -{onSale ? SALE_PERCENT : Math.round(product.discountPercentage)}%
             </span>
           </div>
 
@@ -162,7 +166,7 @@ export default function ProductDetailsPage() {
 
           <button
             onClick={() => {
-              addItem(product);
+              addItem({ ...product, price: displayPrice });
               toast.success(`${product.title} added to cart`);
             }}
             className="primary-pill mt-8 flex w-full items-center justify-center gap-3 py-4 font-semibold"
@@ -192,7 +196,15 @@ export default function ProductDetailsPage() {
 
       <section className="app-container py-8">
         <div className="grid rounded-[1.5rem] border border-blue-100 bg-[#eef3ff] p-8 lg:grid-cols-[1.5fr_0.8fr]">
-          <AIAssistant />
+          <AIAssistant
+            contextProduct={{
+              id: product.id,
+              title: product.title,
+              price: product.price,
+              rating: product.rating,
+              thumbnail: product.thumbnail,
+            }}
+          />
           <div className="hidden items-center justify-center lg:flex">
             <div className="flex h-72 w-72 items-center justify-center rounded-full bg-blue-100 text-blue-300">
               <SparkIcon />
