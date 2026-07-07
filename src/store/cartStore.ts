@@ -14,6 +14,7 @@ interface CartState {
   removeItem: (id: number) => void;
   increment: (id: number) => void;
   decrement: (id: number) => void;
+  setQuantity: (id: number, quantity: number) => void;
   clearCart: () => void;
   count: () => number;
   subtotal: () => number;
@@ -64,6 +65,18 @@ export const useCartStore = create<CartState>()(
           items: state.items
             .map((item) =>
               item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+            )
+            .filter((item) => item.quantity > 0),
+        }));
+      },
+
+      setQuantity: (id, quantity) => {
+        const safeQuantity = Math.max(0, Math.floor(quantity));
+
+        set((state) => ({
+          items: state.items
+            .map((item) =>
+              item.id === id ? { ...item, quantity: safeQuantity } : item
             )
             .filter((item) => item.quantity > 0),
         }));

@@ -106,32 +106,31 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
               </div>
             </Reveal>
 
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap gap-3">
+          </div>
+
+          <div className="mt-10 grid gap-8 lg:grid-cols-[18rem_1fr]">
+            <aside className="h-fit rounded-[1.5rem] border border-slate-200/70 bg-white/90 p-4 shadow-[0_18px_55px_rgba(15,23,42,0.06)] lg:sticky lg:top-28">
+              <p className="label-caps px-2 pb-3 text-slate-500">
+                Filter by category
+              </p>
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={() => {
                     setSelectedCategory("");
                     setCategoryVisibleCount(8);
                   }}
-                  className={`rounded-full px-6 py-3 text-base font-medium ${
+                  className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
                     selectedCategory === ""
-                      ? "bg-blue-700 text-white"
-                      : "bg-slate-50 text-slate-950"
+                      ? "bg-blue-700 text-white shadow-[0_12px_28px_rgba(0,74,198,0.2)]"
+                      : "bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700"
                   }`}
                 >
-                  All Products
+                  <span>All Products</span>
+                  <span className="text-xs opacity-60">→</span>
                 </button>
 
                 <CategoryFilter
-                  categories={
-                    categories?.filter((category) =>
-                      [
-                        "laptops",
-                        "smartphones",
-                        "mobile-accessories",
-                      ].includes(category.slug)
-                    ) || []
-                  }
+                  categories={categories || []}
                   selectedCategory={selectedCategory}
                   onSelectCategory={(category) => {
                     setSelectedCategory(category);
@@ -140,78 +139,81 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
                 />
               </div>
 
-              <div className="relative flex items-center gap-4 text-lg text-slate-500">
-                Sort by:
-                <button
-                  onClick={() => setSortOpen((open) => !open)}
-                  className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-6 py-3 font-medium text-slate-950"
-                  aria-haspopup="listbox"
-                  aria-expanded={sortOpen}
-                >
-                  <span className="capitalize">{sortBy}</span>
-                  <ChevronDown
-                    size={18}
-                    className={`transition-transform ${
-                      sortOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-
-                {sortOpen && (
+              <div className="mt-6 border-t border-slate-100 pt-5">
+                <p className="label-caps px-2 pb-3 text-slate-500">Sort by</p>
+                <div className="relative">
                   <button
-                    type="button"
-                    aria-hidden
-                    tabIndex={-1}
-                    onClick={() => setSortOpen(false)}
-                    className="fixed inset-0 z-10 cursor-default"
-                  />
-                )}
-
-                {sortOpen && (
-                  <ul
-                    role="listbox"
-                    className="absolute right-0 top-full z-20 mt-2 w-40 overflow-hidden rounded-2xl border border-slate-100 bg-white py-1 text-base shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                    onClick={() => setSortOpen((open) => !open)}
+                    className="inline-flex w-full items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950"
+                    aria-haspopup="listbox"
+                    aria-expanded={sortOpen}
                   >
-                    {SORT_OPTIONS.map(([value, label]) => (
-                      <li key={value}>
-                        <button
-                          role="option"
-                          aria-selected={sortBy === value}
-                          onClick={() => {
-                            setSortBy(value);
-                            setSortOpen(false);
-                          }}
-                          className={`flex w-full items-center px-5 py-2.5 text-left font-medium ${
-                            sortBy === value
-                              ? "bg-blue-700 text-white"
-                              : "text-slate-950 hover:bg-slate-50"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
+                    <span>{SORT_OPTIONS.find(([value]) => value === sortBy)?.[1]}</span>
+                    <ChevronDown
+                      size={18}
+                      className={`transition-transform ${
+                        sortOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
-            <div className="max-w-xl rounded-[20px] bg-slate-50 px-5 py-3 lg:hidden">
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setCategoryVisibleCount(8);
-                }}
-                className="w-full bg-transparent font-mono outline-none"
-              />
-            </div>
-          </div>
+                  {sortOpen && (
+                    <button
+                      type="button"
+                      aria-hidden
+                      tabIndex={-1}
+                      onClick={() => setSortOpen(false)}
+                      className="fixed inset-0 z-10 cursor-default"
+                    />
+                  )}
+
+                  {sortOpen && (
+                    <ul
+                      role="listbox"
+                      className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-100 bg-white py-1 text-sm shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                    >
+                      {SORT_OPTIONS.map(([value, label]) => (
+                        <li key={value}>
+                          <button
+                            role="option"
+                            aria-selected={sortBy === value}
+                            onClick={() => {
+                              setSortBy(value);
+                              setSortOpen(false);
+                            }}
+                            className={`flex w-full items-center px-5 py-2.5 text-left font-medium ${
+                              sortBy === value
+                                ? "bg-blue-700 text-white"
+                                : "text-slate-950 hover:bg-slate-50"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-3">
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCategoryVisibleCount(8);
+                  }}
+                  className="w-full bg-transparent font-mono text-sm outline-none"
+                />
+              </div>
+            </aside>
+
+            <div>
 
           {isLoading && (
-            <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {Array.from({ length: 8 }).map((_, index) => (
                 <ProductSkeleton key={index} />
               ))}
@@ -228,7 +230,7 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
           )}
 
           {!isLoading && !isError && visibleProducts.length > 0 && (
-            <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {visibleProducts.map((product, index) => (
                 <ProductCard
                   key={product.id}
@@ -258,6 +260,8 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
               </motion.button>
             </div>
           )}
+            </div>
+          </div>
         </section>
 
         <Footer />

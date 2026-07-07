@@ -31,14 +31,26 @@ export async function resolveChat(input: {
 }): Promise<AIChatResponse> {
   const { messages, lastProducts } = input;
 
-  const decision = await getDecision(messages, lastProducts);
+  let decision = await getDecision(messages, lastProducts);
 
   // The small model is unreliable at price direction ("above" vs "under"), so
   // parse the bounds from the text and let them win.
   const lastUserText =
     [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  if (isExplicitProductDiscovery(lastUserText)) {
+    decision = {
+      ...decision,
+      intent: "product_search",
+      requiresApiCall: true,
+      apiAction: "recommended_products",
+      needsMoreInformation: false,
+      missingInformation: [],
+    };
+  }
+
   let filters = applyPriceBounds(decision.filters, lastUserText);
   filters = applySort(filters, lastUserText);
+  filters = applyLatestRequestOverrides(filters, lastUserText);
   const resultLimit = resolveResultLimit(lastUserText);
   // The model sometimes extracts only the price and drops the category
   // ("smartphones above 800"), so recover it from the raw text.
@@ -95,9 +107,15 @@ export async function resolveChat(input: {
 function isAboutShownProducts(messages: ChatMessage[]): boolean {
   const text =
     [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  if (isExplicitProductDiscovery(text)) return false;
   return /\b(worth|good|great|better|best|value|quality|reliable|recommend|is (it|this|that)|should i|tell me about|how (is|are) (it|this|that|these))\b/i.test(
     text
   );
+}
+
+function latestUserTurn(messages: ChatMessage[]): ChatMessage[] {
+  const latest = [...messages].reverse().find((m) => m.role === "user");
+  return latest ? [latest] : messages.slice(-1);
 }
 
 // Second AI call: writes a natural, grounded reply about the resolved products.
@@ -105,7 +123,7 @@ async function generateGroundedReply(
   messages: ChatMessage[],
   products: LimitedProduct[]
 ): Promise<string | null> {
-  const conversation = formatConversation(messages.slice(-8));
+  const conversation = formatConversation(latestUserTurn(messages));
   const raw = await callNvidiaAI({
     model: NVIDIA_MODEL,
     prompt: buildReplyPrompt(conversation, products),
@@ -197,7 +215,7 @@ function applyPriceBounds(filters: AIFilters, text: string): AIFilters {
 // against whole word tokens, most-specific first.
 const CATEGORY_SYNONYMS: { category: string; words: string[] }[] = [
   { category: "smartphones", words: ["smartphone", "smartphones", "phone", "phones", "iphone", "android", "galaxy", "pixel"] },
-  { category: "laptops", words: ["laptop", "laptops", "notebook", "macbook", "ultrabook"] },
+  { category: "laptops", words: ["laptop", "laptops", "notebook", "macbook", "ultrabook", "gamer", "gamers", "gaming"] },
   { category: "tablets", words: ["tablet", "tablets", "ipad"] },
   { category: "mens-watches", words: ["watch", "watches", "wristwatch", "rolex"] },
   { category: "mens-shoes", words: ["shoe", "shoes", "sneaker", "sneakers", "trainers", "footwear"] },
@@ -215,9 +233,35 @@ const CATEGORY_SYNONYMS: { category: string; words: string[] }[] = [
   { category: "groceries", words: ["grocery", "groceries", "snack", "snacks", "fruit", "vegetable", "food", "foods", "meal", "meals", "dinner", "lunch", "breakfast", "cook", "cooking", "ingredient", "ingredients", "meat", "chicken", "beef", "fish", "rice"] },
   { category: "motorcycle", words: ["motorcycle", "motorbike", "scooter"] },
   { category: "vehicle", words: ["car", "cars", "vehicle", "automobile"] },
-  { category: "mobile-accessories", words: ["charger", "earbuds", "headphone", "headphones", "powerbank", "cable"] },
+  { category: "mobile-accessories", words: ["charger", "earbuds", "headphone", "headphones", "headset", "headsets", "earphone", "earphones", "speaker", "speakers", "powerbank", "cable"] },
   { category: "sports-accessories", words: ["sports", "sport", "fitness", "gym", "football", "basketball", "cricket", "tennis", "yoga"] },
   { category: "tops", words: ["top", "tops", "blouse"] },
+];
+
+const NEED_CATEGORY_CANDIDATES: {
+  test: RegExp;
+  categories: (typeof CATEGORIES)[number][];
+  query: string;
+  purpose: string;
+}[] = [
+  {
+    test: /\b(gamer|gamers|gaming|game setup|gaming setup|streamer|streaming setup)\b/i,
+    categories: ["laptops", "mobile-accessories", "tablets"],
+    query: "gaming electronics",
+    purpose: "gaming",
+  },
+  {
+    test: /\b(dinner|lunch|breakfast|meal|cook|cooking|ingredient|ingredients|meat|chicken|beef|fish|rice)\b/i,
+    categories: ["groceries"],
+    query: "food ingredients",
+    purpose: "meal",
+  },
+  {
+    test: /\b(home office|office setup|desk setup|workspace|work setup)\b/i,
+    categories: ["furniture", "laptops", "mobile-accessories"],
+    query: "office setup",
+    purpose: "work",
+  },
 ];
 
 // Recovers a catalog category from free text when the model left it null.
@@ -244,6 +288,52 @@ function resolveCategory(text: string): string | null {
   }
 
   return category;
+}
+
+function resolveCategoryCandidates(text: string): string[] {
+  const needRule = NEED_CATEGORY_CANDIDATES.find((rule) => rule.test.test(text));
+  if (needRule) return needRule.categories;
+
+  const category = resolveCategory(text);
+  return category ? [category] : [];
+}
+
+function applyLatestRequestOverrides(
+  filters: AIFilters,
+  latestUserText: string
+): AIFilters {
+  const needRule = NEED_CATEGORY_CANDIDATES.find((rule) =>
+    rule.test.test(latestUserText)
+  );
+  if (needRule) {
+    return {
+      ...filters,
+      category: needRule.categories[0],
+      query: needRule.query,
+      purpose: needRule.purpose,
+    };
+  }
+
+  const category = resolveCategory(latestUserText);
+  if (!category) return filters;
+
+  return {
+    ...filters,
+    category,
+  };
+}
+
+function isExplicitProductDiscovery(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    /\b(show|find|get|give|suggest|recommend|need|want|buy|looking for|search)\b.*\b(product|products|item|items|option|options|pick|picks|for)\b/.test(
+      lower
+    ) ||
+    /\b(product|products|item|items|option|options|pick|picks)\b.*\b(for|about|related to)\b/.test(
+      lower
+    ) ||
+    NEED_CATEGORY_CANDIDATES.some((rule) => rule.test.test(lower))
+  );
 }
 
 function resolveResultLimit(text: string): number {
@@ -279,17 +369,29 @@ async function fetchByFilters(
     [filters.query, latestUserText].filter(Boolean).join(" ")
   );
   const shouldUseCategoryFirst = apiAction === "recommended_products";
-  const category =
+  const categoryCandidates = resolveCategoryCandidates(latestUserText);
+  const chosenCategory =
     filters.category ??
     resolveCategory(categoryInput) ??
     (shouldUseCategoryFirst ? await chooseCategory(messages, filters) : null);
+  const categories =
+    categoryCandidates.length > 0
+      ? categoryCandidates
+      : chosenCategory
+      ? [chosenCategory]
+      : [];
 
   const urls: string[] = [];
 
-  if (category) {
-    const pool = applyBrand(
-      await fetchPool(`${BASE_URL}/products/category/${category}?limit=100`),
-      filters.brand
+  if (categories.length > 0) {
+    const categoryPools = await Promise.all(
+      categories.map((category) =>
+        fetchPool(`${BASE_URL}/products/category/${category}?limit=100`)
+      )
+    );
+    const pool = applyNeedProductProfile(
+      applyBrand(categoryPools.flat(), filters.brand),
+      latestUserText
     );
     const relevantPool = applyRelevanceTerms(pool, relevanceTerms);
     const selected = await selectProductsForNeed(
@@ -330,7 +432,10 @@ async function fetchByFilters(
 
   for (const url of urls) {
     const pool = applyRelevanceTerms(
-      applyBrand(await fetchPool(url), filters.brand),
+      applyNeedProductProfile(
+        applyBrand(await fetchPool(url), filters.brand),
+        latestUserText
+      ),
       relevanceTerms
     );
     if (pool.length === 0) continue;
@@ -361,7 +466,7 @@ async function fetchByFilters(
     filters.minPrice !== null ||
     filters.maxPrice !== null ||
     filters.rating !== null;
-  if (!category && !query && hasPriceOrRating) {
+  if (categories.length === 0 && !query && hasPriceOrRating) {
     return selectProductsForNeed(
       messages,
       await fetchPool(`${BASE_URL}/products?limit=100`),
@@ -414,8 +519,15 @@ const BROAD_RELEVANCE_TERMS = new Set([
   "beauty",
   "category",
   "dinner",
+  "electronic",
+  "electronics",
+  "gamer",
+  "gamers",
+  "gaming",
   "gift",
   "idea",
+  "ingredient",
+  "ingredients",
   "meal",
   "something",
   "stuff",
@@ -447,8 +559,48 @@ function applyRelevanceTerms(pool: Product[], terms: string[]): Product[] {
   return matched.length > 0 ? matched : pool;
 }
 
-function productMatchesTerms(product: Product, terms: string[]): boolean {
-  const haystack = [
+function applyNeedProductProfile(pool: Product[], latestUserText: string): Product[] {
+  const lower = latestUserText.toLowerCase();
+  const profile = NEED_PRODUCT_PROFILES.find((item) => item.test.test(lower));
+  if (!profile) return pool;
+
+  const matched = pool.filter((product) => profile.matches(product));
+  return matched.length > 0 ? matched : pool;
+}
+
+const NEED_PRODUCT_PROFILES: {
+  test: RegExp;
+  matches: (product: Product) => boolean;
+}[] = [
+  {
+    test: /\b(gamer|gamers|gaming|game setup|gaming setup|streamer|streaming setup)\b/i,
+    matches: (product) => {
+      const haystack = productText(product);
+      return (
+        ["laptops", "tablets", "smartphones"].includes(product.category) ||
+        /\b(headphones?|headsets?|earphones?|earbuds?|airpods|beats)\b/.test(
+          haystack
+        )
+      );
+    },
+  },
+  {
+    test: /\b(dinner|lunch|meal|cook|cooking|ingredient|ingredients|meat|chicken|beef|fish|rice)\b/i,
+    matches: (product) => {
+      if (product.category !== "groceries") return false;
+      const haystack = productText(product);
+      if (/\b(coffee|tea|oil|juice|drink|beverage)\b/.test(haystack)) {
+        return false;
+      }
+      return /\b(steak|meat|chicken|beef|fish|rice|pasta|vegetable|potato|cucumber|onion|egg|eggs|cheese)\b/.test(
+        haystack
+      );
+    },
+  },
+];
+
+function productText(product: Product): string {
+  return [
     product.title,
     product.category,
     product.description,
@@ -458,6 +610,10 @@ function productMatchesTerms(product: Product, terms: string[]): boolean {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+function productMatchesTerms(product: Product, terms: string[]): boolean {
+  const haystack = productText(product);
 
   const normalizedHaystack = normalizeKeyword(haystack);
   return terms.some((term) => normalizedHaystack.includes(term));
@@ -482,7 +638,7 @@ async function chooseCategory(
   filters: AIFilters
 ): Promise<string | null> {
   const categories = await fetchCategorySlugs();
-  const conversation = formatConversation(messages.slice(-8));
+  const conversation = formatConversation(latestUserTurn(messages));
   const raw = await callNvidiaAI({
     model: NVIDIA_MODEL,
     prompt: buildCategorySelectionPrompt(conversation, categories),
@@ -519,7 +675,7 @@ async function selectProductsForNeed(
   if (candidates.length === 0) return [];
 
   const shortlist = candidates.sort(sortComparator(filters.sort)).slice(0, 20);
-  const conversation = formatConversation(messages.slice(-8));
+  const conversation = formatConversation(latestUserTurn(messages));
   const raw = await callNvidiaAI({
     model: NVIDIA_MODEL,
     prompt: buildProductSelectionPrompt(conversation, shortlist, resultLimit),
