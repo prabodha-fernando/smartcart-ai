@@ -103,6 +103,17 @@ export async function getProductsByCategory(
   return response.data;
 }
 
+// Fetches a specific set of products by id (used for the flash sale).
+export async function getProductsByIds(
+  ids: readonly number[]
+): Promise<Product[]> {
+  const results = await Promise.all(
+    ids.map((id) => publicApi.get(`/products/${id}`).then((r) => r.data))
+  );
+
+  return results as Product[];
+}
+
 export async function getLimitedProducts(
   limit: number,
   skip: number

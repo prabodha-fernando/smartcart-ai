@@ -1,23 +1,39 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AIChatMessage,
-  AIChatMeta,
+  AIChatResponse,
   LimitedProduct,
 } from "@/types/product";
 
-// Drives the streaming shopping conversation against /api/ai/chat.
-// Reads the metadata frame (products) first, then appends prose tokens to the
-// in-flight assistant message as they arrive.
-export function useAIChat() {
+// Drives the shopping conversation against /api/ai/chat. The backend returns a
+// single structured JSON response (reply + resolved products); this hook shows
+// the reply and attaches the product grid on a fresh search.
+//
+// `contextProducts` seeds the products the assistant already "knows about" — on
+// a product detail page, that's the product being viewed, so questions like
+// "is this worth it?" are answered about it.
+export function useAIChat(contextProducts?: LimitedProduct[]) {
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Products currently on screen, sent back so the model can answer follow-ups
   // without re-searching the catalog.
-  const lastProductsRef = useRef<LimitedProduct[]>([]);
+  const lastProductsRef = useRef<LimitedProduct[]>(contextProducts ?? []);
+
+  // Seed the viewed product as context once it loads, unless the shopper has
+  // already searched (which replaces what's on screen).
+  useEffect(() => {
+    if (
+      contextProducts &&
+      contextProducts.length > 0 &&
+      lastProductsRef.current.length === 0
+    ) {
+      lastProductsRef.current = contextProducts;
+    }
+  }, [contextProducts]);
 
   const patchLast = useCallback(
     (updater: (message: AIChatMessage) => AIChatMessage) => {
@@ -57,50 +73,23 @@ export function useAIChat() {
           }),
         });
 
-        if (!response.ok || !response.body) {
+        if (!response.ok) {
           throw new Error("Request failed");
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let metaParsed = false;
+        const data = (await response.json()) as AIChatResponse;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-
-          if (!metaParsed) {
-            const newline = buffer.indexOf("\n");
-            if (newline === -1) continue;
-
-            const metaLine = buffer.slice(0, newline);
-            buffer = buffer.slice(newline + 1);
-            metaParsed = true;
-
-            try {
-              const meta = JSON.parse(metaLine) as AIChatMeta;
-              if (Array.isArray(meta.products) && meta.products.length > 0) {
-                lastProductsRef.current = meta.products;
-              }
-              // Only attach the grid to this turn when it's a fresh search,
-              // so follow-up answers don't duplicate the cards above.
-              if (meta.isNewSearch) {
-                patchLast((m) => ({ ...m, products: meta.products }));
-              }
-            } catch {
-              // ignore a malformed metadata frame
-            }
-          }
-
-          if (metaParsed && buffer) {
-            const chunk = buffer;
-            buffer = "";
-            patchLast((m) => ({ ...m, content: m.content + chunk }));
-          }
+        if (Array.isArray(data.products) && data.products.length > 0) {
+          lastProductsRef.current = data.products;
         }
+
+        patchLast((m) => ({
+          ...m,
+          content: data.reply,
+          // Only attach the grid on a fresh search, so follow-up answers don't
+          // duplicate the cards already on screen.
+          products: data.isNewSearch ? data.products : undefined,
+        }));
       } catch {
         setError("Something went wrong. Please try again.");
         patchLast((m) =>
