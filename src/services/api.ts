@@ -12,7 +12,6 @@ import {
   ProductsResponse,
 } from "@/types/product";
 
-// LOGIN (PUBLIC)
 export async function loginUser(
   username: string,
   password: string
@@ -26,7 +25,6 @@ export async function loginUser(
   return response.data;
 }
 
-// GET CURRENT USER
 export async function getAuthUser(): Promise<User> {
   const response = await privateApi.get("/auth/me");
 
@@ -47,7 +45,6 @@ export async function createAuthUser(
   return response.data;
 }
 
-// REFRESH TOKEN
 export async function refreshAccessToken(
   refreshToken: string
 ): Promise<LoginResponse> {
@@ -59,7 +56,6 @@ export async function refreshAccessToken(
   return response.data;
 }
 
-// PRODUCTS
 export async function getProducts(
   limit: number = 12,
   skip: number = 0
@@ -103,7 +99,6 @@ export async function getProductsByCategory(
   return response.data;
 }
 
-// Fetches a specific set of products by id (used for the flash sale).
 export async function getProductsByIds(
   ids: readonly number[]
 ): Promise<Product[]> {

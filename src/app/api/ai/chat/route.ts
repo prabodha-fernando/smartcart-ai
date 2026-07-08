@@ -1,9 +1,6 @@
 import type { LimitedProduct } from "@/types/product";
 import { resolveChat } from "@/services/chatService";
 
-// Thin controller: the frontend sends ONLY the conversation (never the system
-// prompt). All prompt building, the AI call, and product resolution live in the
-// service / lib layer. This just parses the request and returns the result.
 
 interface IncomingMessage {
   role: "user" | "assistant";

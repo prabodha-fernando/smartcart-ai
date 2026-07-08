@@ -3,8 +3,6 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 
-// Re-mounts on every route change, giving each page a soft fade-in.
-// Opacity only — a transform here would break the sticky Navbar.
 export default function Template({ children }: { children: ReactNode }) {
   return (
     <motion.div

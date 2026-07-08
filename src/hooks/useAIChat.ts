@@ -10,13 +10,6 @@ import type {
 import { useCartStore, type CartItem } from "@/store/cartStore";
 import { useFavoritesStore } from "@/store/favoritesStore";
 
-// Drives the shopping conversation against /api/ai/chat. The backend returns a
-// single structured JSON response (reply + resolved products); this hook shows
-// the reply and attaches the product grid on a fresh search.
-//
-// `contextProducts` seeds the products the assistant already "knows about" — on
-// a product detail page, that's the product being viewed, so questions like
-// "is this worth it?" are answered about it.
 export function useAIChat(contextProducts?: LimitedProduct[]) {
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -32,12 +25,8 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
   const updateNote = useFavoritesStore((state) => state.updateNote);
   const clearFavorites = useFavoritesStore((state) => state.clearFavorites);
 
-  // Products currently on screen, sent back so the model can answer follow-ups
-  // without re-searching the catalog.
   const lastProductsRef = useRef<LimitedProduct[]>(contextProducts ?? []);
 
-  // Seed the viewed product as context once it loads, unless the shopper has
-  // already searched (which replaces what's on screen).
   useEffect(() => {
     if (
       contextProducts &&
@@ -73,7 +62,6 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
         { role: "user", content },
       ];
 
-      // Show the user turn plus an empty assistant turn to stream into.
       setMessages([...history, { role: "assistant", content: "" }]);
 
       try {
@@ -127,8 +115,6 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
         patchLast((m) => ({
           ...m,
           content: data.reply,
-          // Only attach the grid on a fresh search, so follow-up answers don't
-          // duplicate the cards already on screen.
           products: data.isNewSearch ? data.products : undefined,
         }));
       } catch {

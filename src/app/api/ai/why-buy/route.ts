@@ -1,11 +1,6 @@
 import { streamNvidiaChat } from "@/lib/ai/nvidiaClient";
 import { buildWhyBuyPrompt, type WhyBuyProduct } from "@/lib/ai/promptBuilder";
 
-// Streams a short, grounded "why buy this" pitch for a single product.
-// Response body is raw text (streamed token-by-token) — no metadata frame.
-// This is a free-text blurb, not the structured-JSON shopping assistant, so it
-// streams prose. Prompt text lives in promptBuilder; the client call lives in
-// nvidiaClient.
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
@@ -38,7 +33,6 @@ export async function POST(request: Request) {
           return;
         }
       } catch {
-        // fall through to deterministic fallback
       }
 
       send(fallbackPitch(product));
@@ -55,7 +49,6 @@ export async function POST(request: Request) {
   });
 }
 
-// Deterministic pitch used when the model is unavailable.
 function fallbackPitch(product: WhyBuyProduct): string {
   const name = product.title ?? "This product";
   const parts: string[] = [];
