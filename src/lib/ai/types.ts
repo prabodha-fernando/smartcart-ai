@@ -1,5 +1,3 @@
-// Shared AI schema/types and the catalog category list. Kept separate from the
-// client and prompt builder per the recommended /lib/ai structure.
 
 export const CATEGORIES = [
   "beauty",
@@ -28,8 +26,6 @@ export const CATEGORIES = [
   "womens-watches",
 ] as const;
 
-// Search parameters the model extracts. The AI never invents values; the
-// backend turns these into an actual catalog query.
 export interface AIFilters {
   category: string | null;
   brand: string | null;
@@ -39,8 +35,6 @@ export interface AIFilters {
   rating: number | null;
   purpose: string | null;
   color: string | null;
-  // How to order results: "price_asc" | "price_desc" | "rating" | "newest".
-  // null defaults to rating (highest first).
   sort: string | null;
 }
 
@@ -50,8 +44,6 @@ export type AIApiAction =
   | "recommended_products"
   | "featured_products";
 
-// The structured decision the model returns for every turn. The frontend never
-// sees this — the backend inspects it to decide what to do.
 export interface AIDecision {
   intent: string;
   requiresApiCall: boolean;

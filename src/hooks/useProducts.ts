@@ -61,7 +61,6 @@ export function useInfiniteLimitedProducts(limit: number = 8) {
     queryKey: ["limited-products", "infinite", limit],
     queryFn: ({ pageParam }) => getLimitedProducts(limit, pageParam),
     initialPageParam: 0,
-    // skip = number of products already loaded on the frontend.
     getNextPageParam: (lastPage, pages) => {
       const loaded = pages.reduce(
         (count, page) => count + page.products.length,

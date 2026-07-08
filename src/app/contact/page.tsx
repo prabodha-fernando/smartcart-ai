@@ -40,7 +40,6 @@ export default function ContactPage() {
     }
 
     setSubmitting(true);
-    // Demo submission — no backend endpoint in this project.
     setTimeout(() => {
       setSubmitting(false);
       setForm({ name: "", email: "", message: "" });

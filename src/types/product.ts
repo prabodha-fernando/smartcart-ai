@@ -59,8 +59,6 @@ export interface LimitedProduct {
   thumbnail: string;
 }
 
-// A saved product plus the metadata the favorites page manages: when it was
-// saved (for recency sorting) and an optional personal note (the "update" op).
 export interface FavoriteItem extends LimitedProduct {
   addedAt: number;
   note?: string;
@@ -89,18 +87,13 @@ export interface AIProductQuery {
 
 export type AIChatRole = "user" | "assistant";
 
-// A single turn in the AI shopping conversation. Assistant turns may carry the
-// products that were surfaced for that reply.
 export interface AIChatMessage {
   role: AIChatRole;
   content: string;
   products?: LimitedProduct[];
 }
 
-// The AI decision/filter schema lives in @/lib/ai/types (backend-only).
 
-// What /api/ai/chat returns to the client: the model's reply plus any products
-// the backend resolved from the decision.
 export interface AIChatResponse {
   reply: string;
   products: LimitedProduct[];

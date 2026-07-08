@@ -61,7 +61,6 @@ export const useCartStore = create<CartState>()(
 
       decrement: (id) => {
         set((state) => ({
-          // Drop the item when its quantity would reach zero.
           items: state.items
             .map((item) =>
               item.id === id ? { ...item, quantity: item.quantity - 1 } : item

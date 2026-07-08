@@ -27,7 +27,6 @@ export default function FavoritesPage() {
       return [...favorites].sort((a, b) => a.price - b.price);
     }
 
-    // Recently added first.
     return [...favorites].sort((a, b) => b.addedAt - a.addedAt);
   }, [favorites, sortBy]);
 
