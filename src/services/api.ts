@@ -39,8 +39,8 @@ export async function getAuthUsers(): Promise<UsersResponse> {
 
 export async function createAuthUser(
   payload: CreateAccountPayload
-): Promise<User> {
-  const response = await publicApi.post("/users/add", payload);
+): Promise<LoginResponse> {
+  const response = await publicApi.post("/auth/register", payload);
 
   return response.data;
 }

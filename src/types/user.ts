@@ -1,7 +1,7 @@
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  id: number;
+  id: number | string;
   username: string;
   email: string;
   firstName: string;
@@ -11,7 +11,7 @@ export interface LoginResponse {
 }
 
 export interface User {
-  id: number;
+  id: number | string;
   firstName: string;
   lastName: string;
   maidenName: string;
