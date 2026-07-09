@@ -157,19 +157,29 @@ export default function LoginPage() {
     };
 
     try {
-      let createdUser = buildSignupUser({ id: Date.now() } as AuthUser, payload);
-
       try {
-        const apiUser = await withTimeout(
+        await withTimeout(
           createAccountMutation.mutateAsync(payload),
-          3500
+          6000
         );
-        createdUser = buildSignupUser(apiUser, payload);
+        setUsername(payload.username);
+        setPassword("");
+        setSignup({
+          firstName: "",
+          lastName: "",
+          email: "",
+          username: "",
+          password: "",
+          confirmPassword: "",
+        });
+        setAuthMode("login");
+        toast.success("Account created. Please sign in to continue.");
+        return;
       } catch (createError) {
         console.warn("Using local signup profile:", createError);
       }
 
-      const user = buildSignupUser(createdUser, payload);
+      const user = buildSignupUser({ id: Date.now() } as AuthUser, payload);
 
       saveLocalAccount({
         username: payload.username,
@@ -178,7 +188,7 @@ export default function LoginPage() {
         user,
       });
       setUsername(payload.username);
-      setPassword(payload.password);
+      setPassword("");
       setSignup({
         firstName: "",
         lastName: "",
@@ -188,7 +198,7 @@ export default function LoginPage() {
         confirmPassword: "",
       });
       setAuthMode("login");
-      toast.success("Account created. Sign in with your new account.");
+      toast.success("Account created. Please sign in to continue.");
     } catch (error) {
       console.error("Create account failed:", error);
       toast.error("Could not create account. Please try again.");
