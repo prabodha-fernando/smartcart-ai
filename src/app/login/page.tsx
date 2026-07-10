@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import axios from "axios";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -25,19 +26,6 @@ import {
   User as AuthUser,
 } from "@/types/user";
 
-const LOCAL_ACCOUNTS_KEY = "smartcart-local-accounts";
-const DEMO_CREDENTIALS = {
-  username: "emilys",
-  password: "emilyspass",
-};
-
-interface LocalAccount {
-  username: string;
-  email: string;
-  password: string;
-  user: AuthUser;
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -47,31 +35,21 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login);
 
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [username, setUsername] = useState("emilys");
+  const [email, setEmail] = useState("emily.johnson@x.dummyjson.com");
   const [password, setPassword] = useState("emilyspass");
   const [showPassword, setShowPassword] = useState(false);
   const [signup, setSignup] = useState({
-    firstName: "",
-    lastName: "",
+    name: "",
     email: "",
-    username: "",
     password: "",
     confirmPassword: "",
   });
 
-  const submitLogin = async (credentials = { username, password }) => {
+  const submitLogin = async (credentials = { email, password }) => {
     const normalizedCredentials = {
-      username: credentials.username.trim(),
+      email: credentials.email.trim(),
       password: credentials.password,
     };
-    const localAccount = findLocalAccount(normalizedCredentials);
-
-    if (localAccount) {
-      signInUser(localAccount.user, buildLocalTokensFromUser(localAccount.user));
-      toast.success("Signed in with your SmartCart account.");
-      router.push("/");
-      return;
-    }
 
     try {
       const tokens = await withTimeout(
@@ -83,18 +61,8 @@ export default function LoginPage() {
       signInUser(user, tokens);
       router.push("/");
     } catch (error) {
-      console.warn("Remote login failed:", error);
-
-      if (isDemoCredentials(normalizedCredentials)) {
-        const user = buildDemoUser();
-
-        signInUser(user, buildLocalTokensFromUser(user));
-        toast.success("Signed in with demo account.");
-        router.push("/");
-        return;
-      }
-
-      toast.error("Login failed. Check username/password.");
+      console.warn("Login failed:", error);
+      toast.error("Login failed. Check your email and password.");
     }
   };
 
@@ -109,9 +77,12 @@ export default function LoginPage() {
   };
 
   const handleGuestLogin = async () => {
-    setUsername("emilys");
+    setEmail("emily.johnson@x.dummyjson.com");
     setPassword("emilyspass");
-    await submitLogin({ username: "emilys", password: "emilyspass" });
+    await submitLogin({
+      email: "emily.johnson@x.dummyjson.com",
+      password: "emilyspass",
+    });
   };
 
   const updateSignup = (field: keyof typeof signup, value: string) => {
@@ -121,13 +92,11 @@ export default function LoginPage() {
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const firstName = signup.firstName.trim();
-    const lastName = signup.lastName.trim();
+    const name = signup.name.trim();
     const email = signup.email.trim();
-    const signupUsername = signup.username.trim();
     const signupPassword = signup.password;
 
-    if (!firstName || !lastName || !email || !signupUsername) {
+    if (!name || !email) {
       toast.error("Please fill in all account details.");
       return;
     }
@@ -148,58 +117,36 @@ export default function LoginPage() {
     }
 
     const payload: CreateAccountPayload = {
-      firstName,
-      lastName,
+      name,
       email,
-      username: signupUsername,
       password: signupPassword,
-      age: 25,
     };
 
     try {
-      try {
-        await withTimeout(
-          createAccountMutation.mutateAsync(payload),
-          6000
-        );
-        setUsername(payload.username);
-        setPassword("");
-        setSignup({
-          firstName: "",
-          lastName: "",
-          email: "",
-          username: "",
-          password: "",
-          confirmPassword: "",
-        });
-        setAuthMode("login");
-        toast.success("Account created. Please sign in to continue.");
-        return;
-      } catch (createError) {
-        console.warn("Using local signup profile:", createError);
-      }
+      await withTimeout(createAccountMutation.mutateAsync(payload), 6000);
 
-      const user = buildSignupUser({ id: Date.now() } as AuthUser, payload);
-
-      saveLocalAccount({
-        username: payload.username,
-        email: payload.email,
-        password: payload.password,
-        user,
-      });
-      setUsername(payload.username);
+      setEmail(payload.email);
       setPassword("");
       setSignup({
-        firstName: "",
-        lastName: "",
+        name: "",
         email: "",
-        username: "",
         password: "",
         confirmPassword: "",
       });
       setAuthMode("login");
       toast.success("Account created. Please sign in to continue.");
     } catch (error) {
+      // The account already exists on the backend — send them to sign in.
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        setEmail(payload.email);
+        setPassword("");
+        setAuthMode("login");
+        toast.error(
+          "An account with that email already exists. Please sign in."
+        );
+        return;
+      }
+
       console.error("Create account failed:", error);
       toast.error("Could not create account. Please try again.");
     }
@@ -296,47 +243,26 @@ export default function LoginPage() {
 
             <div className="space-y-4">
               {authMode === "signup" && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <TextField
-                    label="First Name"
-                    value={signup.firstName}
-                    onChange={(value) => updateSignup("firstName", value)}
-                    placeholder="Jane"
-                    icon={<User size={22} />}
-                  />
-                  <TextField
-                    label="Last Name"
-                    value={signup.lastName}
-                    onChange={(value) => updateSignup("lastName", value)}
-                    placeholder="Cooper"
-                    icon={<User size={22} />}
-                  />
-                </div>
-              )}
-
-              {authMode === "signup" && (
                 <TextField
-                  label="Email"
-                  value={signup.email}
-                  onChange={(value) => updateSignup("email", value)}
-                  placeholder="name@example.com"
-                  icon={<Mail size={22} />}
-                  type="email"
+                  label="Full Name"
+                  value={signup.name}
+                  onChange={(value) => updateSignup("name", value)}
+                  placeholder="Jane Cooper"
+                  icon={<User size={22} />}
                 />
               )}
 
               <TextField
-                label="Username or Email"
-                value={authMode === "login" ? username : signup.username}
+                label="Email"
+                value={authMode === "login" ? email : signup.email}
                 onChange={(value) =>
                   authMode === "login"
-                    ? setUsername(value)
-                    : updateSignup("username", value)
+                    ? setEmail(value)
+                    : updateSignup("email", value)
                 }
-                placeholder={
-                  authMode === "login" ? "name@example.com" : "jane_cooper"
-                }
-                icon={<User size={22} />}
+                placeholder="name@example.com"
+                icon={<Mail size={22} />}
+                type="email"
               />
 
               <label className="block space-y-2">
@@ -346,7 +272,9 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        toast("Use the demo account: emilys / emilyspass")
+                        toast(
+                          "Use the demo account: emily.johnson@x.dummyjson.com / emilyspass"
+                        )
                       }
                       className="text-blue-700 transition hover:opacity-70"
                     >
@@ -505,56 +433,9 @@ function TextField({
   );
 }
 
-function buildSignupUser(
-  createdUser: AuthUser,
-  payload: CreateAccountPayload
-): AuthUser {
-  return {
-    id: createdUser.id,
-    firstName: payload.firstName,
-    lastName: payload.lastName,
-    maidenName: "",
-    age: payload.age,
-    gender: "other",
-    email: payload.email,
-    phone: "+1 555 0100",
-    username: payload.username,
-    birthDate: "2000-01-01",
-    image: "https://dummyjson.com/icon/emilys/128",
-    university: "SmartCart AI Academy",
-    role: "customer",
-    address: {
-      address: "Local demo profile",
-      city: "Colombo",
-      state: "Western",
-      country: "Sri Lanka",
-      postalCode: "10000",
-    },
-    company: {
-      department: "Shopping",
-      name: "SmartCart AI",
-      title: "Smart Shopper",
-    },
-  };
-}
-
-function buildLocalTokensFromUser(user: AuthUser): LoginResponse {
-  return {
-    accessToken: `local-access-${user.id}-${Date.now()}`,
-    refreshToken: `local-refresh-${user.id}-${Date.now()}`,
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    gender: user.gender,
-    image: user.image,
-  };
-}
-
 async function getUserForTokens(tokens: LoginResponse): Promise<AuthUser> {
   try {
-    return await withTimeout(getAuthUser(), 5000);
+    return await withTimeout(getAuthUser(tokens.accessToken), 5000);
   } catch (error) {
     console.warn("Using login response profile:", error);
     return buildUserFromLoginResponse(tokens);
@@ -562,103 +443,7 @@ async function getUserForTokens(tokens: LoginResponse): Promise<AuthUser> {
 }
 
 function buildUserFromLoginResponse(tokens: LoginResponse): AuthUser {
-  return {
-    id: tokens.id,
-    firstName: tokens.firstName,
-    lastName: tokens.lastName,
-    maidenName: "",
-    age: 25,
-    gender: tokens.gender || "other",
-    email: tokens.email,
-    phone: "+1 555 0100",
-    username: tokens.username,
-    birthDate: "2000-01-01",
-    image: tokens.image || "https://dummyjson.com/icon/emilys/128",
-    university: "SmartCart AI Academy",
-    role: "customer",
-    address: {
-      address: "Demo profile",
-      city: "Colombo",
-      state: "Western",
-      country: "Sri Lanka",
-      postalCode: "10000",
-    },
-    company: {
-      department: "Shopping",
-      name: "SmartCart AI",
-      title: "Smart Shopper",
-    },
-  };
-}
-
-function buildDemoUser(): AuthUser {
-  return buildUserFromLoginResponse({
-    accessToken: "local-demo-access",
-    refreshToken: "local-demo-refresh",
-    id: 1,
-    username: DEMO_CREDENTIALS.username,
-    email: "emily.johnson@x.dummyjson.com",
-    firstName: "Emily",
-    lastName: "Johnson",
-    gender: "female",
-    image: "https://dummyjson.com/icon/emilys/128",
-  });
-}
-
-function findLocalAccount(credentials: {
-  username: string;
-  password: string;
-}): LocalAccount | null {
-  const accounts = getLocalAccounts();
-  const username = credentials.username.toLowerCase();
-
-  return (
-    accounts.find(
-      (account) =>
-        account.password === credentials.password &&
-        (account.username.toLowerCase() === username ||
-          account.email.toLowerCase() === username)
-    ) ?? null
-  );
-}
-
-function saveLocalAccount(account: LocalAccount) {
-  const accounts = getLocalAccounts().filter(
-    (item) =>
-      item.username.toLowerCase() !== account.username.toLowerCase() &&
-      item.email.toLowerCase() !== account.email.toLowerCase()
-  );
-
-  localStorage.setItem(
-    LOCAL_ACCOUNTS_KEY,
-    JSON.stringify([...accounts, account])
-  );
-}
-
-function getLocalAccounts(): LocalAccount[] {
-  try {
-    const storedAccounts = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
-
-    if (!storedAccounts) {
-      return [];
-    }
-
-    const accounts = JSON.parse(storedAccounts);
-
-    return Array.isArray(accounts) ? accounts : [];
-  } catch {
-    return [];
-  }
-}
-
-function isDemoCredentials(credentials: {
-  username: string;
-  password: string;
-}) {
-  return (
-    credentials.username === DEMO_CREDENTIALS.username &&
-    credentials.password === DEMO_CREDENTIALS.password
-  );
+  return tokens.user;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {

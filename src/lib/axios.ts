@@ -53,13 +53,11 @@ privateApi.interceptors.response.use(
 
         const response = await publicApi.post("/auth/refresh", {
           refreshToken,
-          expiresInMins: 30,
         });
 
-        const newAccessToken = response.data.accessToken;
-        const newRefreshToken = response.data.refreshToken;
+        const newAccessToken = response.data.data.accessToken;
 
-        useAuthStore.getState().setTokens(newAccessToken, newRefreshToken);
+        useAuthStore.getState().setTokens(newAccessToken, refreshToken);
 
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
