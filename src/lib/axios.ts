@@ -2,6 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const TOKEN_EXPIRY_GRACE_SECONDS = 10;
 
 export const publicApi = axios.create({
   baseURL: API_BASE_URL,
@@ -19,11 +20,67 @@ export const privateApi = axios.create({
   },
 });
 
+function getJwtExpiry(token: string | null): number | null {
+  if (!token) return null;
+
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(window.atob(normalized)) as { exp?: unknown };
+
+    return typeof decoded.exp === "number" ? decoded.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+function isExpiredOrInvalid(token: string | null): boolean {
+  const exp = getJwtExpiry(token);
+
+  if (!exp) return true;
+
+  return exp <= Math.floor(Date.now() / 1000) + TOKEN_EXPIRY_GRACE_SECONDS;
+}
+
+let refreshPromise: Promise<string> | null = null;
+
+async function getFreshAccessToken() {
+  const { accessToken, refreshToken, setTokens, logout } = useAuthStore.getState();
+
+  if (!accessToken || !refreshToken) {
+    return null;
+  }
+
+  if (!isExpiredOrInvalid(accessToken)) {
+    return accessToken;
+  }
+
+  if (isExpiredOrInvalid(refreshToken)) {
+    logout();
+    return null;
+  }
+
+  refreshPromise ??= publicApi
+    .post("/auth/refresh", { refreshToken })
+    .then((response) => {
+      const newAccessToken = response.data.data.accessToken as string;
+      setTokens(newAccessToken, refreshToken);
+      return newAccessToken;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+}
+
 // REQUEST INTERCEPTOR
 privateApi.interceptors.request.use(
-  (config) => {
+  async (config) => {
     if (typeof window !== "undefined") {
-      const token = useAuthStore.getState().accessToken;
+      const token = await getFreshAccessToken();
 
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
