@@ -14,8 +14,9 @@ import {
   formatConversation,
   formatProductContext,
 } from "@/lib/ai/promptBuilder";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://dummyjson.com";
+const BASE_URL = getApiBaseUrl();
 const MAX_PRODUCTS = 4;
 
 interface ChatMessage {

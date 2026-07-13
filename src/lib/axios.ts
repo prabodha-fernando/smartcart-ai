@@ -1,7 +1,8 @@
 import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const API_BASE_URL = getApiBaseUrl();
 const TOKEN_EXPIRY_GRACE_SECONDS = 10;
 
 export const publicApi = axios.create({
