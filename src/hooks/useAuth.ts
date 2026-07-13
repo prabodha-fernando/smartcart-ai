@@ -11,12 +11,12 @@ import { useAuthStore } from "@/store/authStore";
 export function useLogin() {
   return useMutation({
     mutationFn: ({
-      username,
+      email,
       password,
     }: {
-      username: string;
+      email: string;
       password: string;
-    }) => loginUser(username, password),
+    }) => loginUser(email, password),
   });
 }
 
@@ -33,7 +33,7 @@ export function useAuthUser() {
 
   const query = useQuery({
     queryKey: ["auth-user"],
-    queryFn: getAuthUser,
+    queryFn: () => getAuthUser(),
     enabled: hasHydrated && !!accessToken && !storedUser,
     initialData: storedUser ?? undefined,
     retry: false,

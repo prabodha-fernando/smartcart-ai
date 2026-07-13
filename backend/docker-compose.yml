@@ -1,0 +1,14 @@
+# Local dev database. Start with:  docker compose up -d
+# (Day 7 will add the backend service itself to this file for full Dockerization.)
+services:
+  mongo:
+    image: mongo:7
+    container_name: smartcart-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

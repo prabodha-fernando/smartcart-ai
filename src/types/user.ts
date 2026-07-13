@@ -1,31 +1,30 @@
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  id: number | string;
-  username: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  gender: string;
-  image: string;
+  user: User;
 }
 
 export interface User {
   id: number | string;
+  name: string;
   firstName: string;
   lastName: string;
-  maidenName: string;
-  age: number;
   gender: string;
   email: string;
   phone: string;
   username: string;
-  birthDate: string;
   image: string;
-  university: string;
   role: string;
 
-  address: {
+  // Optional profile extras. The backend's /auth/me returns the core fields
+  // above; these richer fields only exist on the legacy DummyJSON profile (or
+  // once a user fills them in), so consumers must treat them as optional.
+  maidenName?: string;
+  age?: number;
+  birthDate?: string;
+  university?: string;
+
+  address?: {
     address: string;
     city: string;
     state: string;
@@ -33,7 +32,7 @@ export interface User {
     postalCode: string;
   };
 
-  company: {
+  company?: {
     department: string;
     name: string;
     title: string;
@@ -48,10 +47,29 @@ export interface UsersResponse {
 }
 
 export interface CreateAccountPayload {
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
-  username: string;
   password: string;
-  age: number;
+}
+
+export interface AuthApiUser {
+  id: string;
+  name?: string;
+  email: string;
+}
+
+export interface AuthApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+export interface AuthApiData {
+  user: AuthApiUser;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
 }

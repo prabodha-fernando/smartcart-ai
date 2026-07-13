@@ -1,7 +1,11 @@
 import { publicApi, privateApi } from "@/lib/axios";
 import {
+  AuthApiData,
+  AuthApiResponse,
+  AuthApiUser,
   CreateAccountPayload,
   LoginResponse,
+  RefreshTokenResponse,
   User,
   UsersResponse,
 } from "@/types/user";
@@ -12,23 +16,58 @@ import {
   ProductsResponse,
 } from "@/types/product";
 
-export async function loginUser(
-  username: string,
-  password: string
-): Promise<LoginResponse> {
-  const response = await publicApi.post("/auth/login", {
-    username,
-    password,
-    expiresInMins: 30,
-  });
+function normalizeAuthUser(user: AuthApiUser): User {
+  const name = user.name?.trim() || user.email.split("@")[0];
+  const [firstName = name, ...lastNameParts] = name.split(/\s+/);
+  const lastName = lastNameParts.join(" ");
 
-  return response.data;
+  return {
+    id: user.id,
+    name,
+    firstName,
+    lastName,
+    gender: "other",
+    email: user.email,
+    phone: "",
+    username: user.email,
+    image: "",
+    role: "customer",
+  };
 }
 
-export async function getAuthUser(): Promise<User> {
-  const response = await privateApi.get("/auth/me");
+function normalizeAuthData(data: AuthApiData): LoginResponse {
+  return {
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+    user: normalizeAuthUser(data.user),
+  };
+}
 
-  return response.data;
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<LoginResponse> {
+  const response = await publicApi.post<AuthApiResponse<AuthApiData>>(
+    "/auth/login",
+    {
+      email,
+      password,
+    }
+  );
+
+  return normalizeAuthData(response.data.data);
+}
+
+export async function getAuthUser(accessToken?: string): Promise<User> {
+  const response = await privateApi.get<AuthApiResponse<{ user: AuthApiUser }>>("/auth/me", {
+    headers: accessToken
+      ? {
+          Authorization: `Bearer ${accessToken}`,
+        }
+      : undefined,
+  });
+
+  return normalizeAuthUser(response.data.data.user);
 }
 
 export async function getAuthUsers(): Promise<UsersResponse> {
@@ -40,20 +79,22 @@ export async function getAuthUsers(): Promise<UsersResponse> {
 export async function createAuthUser(
   payload: CreateAccountPayload
 ): Promise<LoginResponse> {
-  const response = await publicApi.post("/auth/register", payload);
+  const response = await publicApi.post<AuthApiResponse<AuthApiData>>(
+    "/auth/register",
+    payload
+  );
 
-  return response.data;
+  return normalizeAuthData(response.data.data);
 }
 
 export async function refreshAccessToken(
   refreshToken: string
-): Promise<LoginResponse> {
-  const response = await publicApi.post("/auth/refresh", {
+): Promise<RefreshTokenResponse> {
+  const response = await publicApi.post<AuthApiResponse<RefreshTokenResponse>>("/auth/refresh", {
     refreshToken,
-    expiresInMins: 30,
   });
 
-  return response.data;
+  return response.data.data;
 }
 
 export async function getProducts(
@@ -118,4 +159,91 @@ export async function getLimitedProducts(
   );
 
   return response.data;
+}
+
+// ─── Cart (server-persisted, per user) ────────────────────────────────────
+// The backend keys items by `productId` and returns computed totals. All of
+// these hit `privateApi`, so the auth interceptor attaches the access token.
+
+export interface ServerCartItem {
+  id: string;
+  productId: number;
+  title: string;
+  price: number;
+  thumbnail: string;
+  rating?: number;
+  quantity: number;
+}
+
+export interface ServerCart {
+  items: ServerCartItem[];
+  totalItems: number;
+  totalPrice: number;
+}
+
+interface CartApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    cart: ServerCart;
+  };
+}
+
+function isCartApiResponse(response: CartApiResponse | ServerCart): response is CartApiResponse {
+  return "data" in response && "cart" in response.data;
+}
+
+function normalizeCartResponse(response: CartApiResponse | ServerCart): ServerCart {
+  if (isCartApiResponse(response)) {
+    return response.data.cart;
+  }
+
+  return response;
+}
+
+export async function getCart(): Promise<ServerCart> {
+  const response = await privateApi.get<CartApiResponse | ServerCart>("/cart");
+
+  return normalizeCartResponse(response.data);
+}
+
+export async function addCartItem(
+  productId: number,
+  quantity: number = 1
+): Promise<ServerCart> {
+  const response = await privateApi.post<CartApiResponse | ServerCart>("/cart/items", {
+    productId,
+    quantity,
+  });
+
+  return normalizeCartResponse(response.data);
+}
+
+/** Sets an item's quantity to an absolute value (not a delta). */
+export async function updateCartItem(
+  productId: number,
+  quantity: number
+): Promise<ServerCart> {
+  const response = await privateApi.patch<CartApiResponse | ServerCart>(
+    `/cart/items/${productId}`,
+    {
+      quantity,
+    }
+  );
+
+  return normalizeCartResponse(response.data);
+}
+
+export async function removeCartItem(productId: number): Promise<ServerCart> {
+  const response = await privateApi.delete<CartApiResponse | ServerCart>(
+    `/cart/items/${productId}`
+  );
+
+  return normalizeCartResponse(response.data);
+}
+
+export async function clearServerCart(): Promise<ServerCart> {
+  const response = await privateApi.delete<CartApiResponse | ServerCart>("/cart");
+
+  return normalizeCartResponse(response.data);
 }

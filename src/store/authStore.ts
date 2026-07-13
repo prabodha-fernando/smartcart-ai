@@ -2,6 +2,16 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { LoginResponse, User } from "@/types/user";
 
+function isJwtLike(token: string | null): boolean {
+  return !!token && token.split(".").length === 3;
+}
+
+export function hasBackendSession() {
+  const { accessToken, refreshToken } = useAuthStore.getState();
+
+  return isJwtLike(accessToken) && isJwtLike(refreshToken);
+}
+
 interface AuthState {
   user: User | null;
   accessToken: string | null;
@@ -72,6 +82,13 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
       }),
       onRehydrateStorage: () => (state) => {
+        if (
+          state?.accessToken &&
+          (!isJwtLike(state.accessToken) || !isJwtLike(state.refreshToken))
+        ) {
+          state.logout();
+        }
+
         state?.setHasHydrated(true);
       },
     }

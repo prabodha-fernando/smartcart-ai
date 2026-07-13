@@ -64,11 +64,11 @@ export default function ProfilePage() {
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
-      address: user.address.address,
-      city: user.address.city,
-      state: user.address.state,
-      postalCode: user.address.postalCode,
-      country: user.address.country,
+      address: user.address?.address ?? "",
+      city: user.address?.city ?? "",
+      state: user.address?.state ?? "",
+      postalCode: user.address?.postalCode ?? "",
+      country: user.address?.country ?? "",
     });
     setIsEditing(true);
   };
@@ -129,14 +129,20 @@ export default function ProfilePage() {
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="relative h-56 w-56 overflow-hidden rounded-full border-8 border-white bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
                 >
-                  <Image
-                    src={user.image}
-                    alt={user.firstName}
-                    fill
-                    sizes="224px"
-                    loading="eager"
-                    className="object-cover"
-                  />
+                  {user.image ? (
+                    <Image
+                      src={user.image}
+                      alt={user.firstName}
+                      fill
+                      sizes="224px"
+                      loading="eager"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-blue-100 text-5xl font-bold text-blue-700">
+                      {(user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "")}
+                    </div>
+                  )}
                   <button
                     onClick={() => toast("Profile photo editing is not available in DummyJSON.")}
                     className="absolute bottom-3 right-3 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg"
@@ -157,7 +163,7 @@ export default function ProfilePage() {
                     {user.firstName} {user.lastName}
                   </h1>
                   <p className="mt-3 text-2xl text-slate-500">
-                    {user.company.title} & Tech Enthusiast
+                    {user.company?.title ?? "Member"} & Tech Enthusiast
                   </p>
                 </motion.div>
               </div>
@@ -196,9 +202,12 @@ export default function ProfilePage() {
 
               <Panel title="Professional" icon={Briefcase} highlighted>
                 <div className="space-y-7">
-                  <InfoItem label="Company" value={user.company.name} />
-                  <InfoItem label="Role" value={user.company.title} />
-                  <InfoItem label="Department" value={user.company.department} />
+                  <InfoItem label="Company" value={user.company?.name ?? "—"} />
+                  <InfoItem label="Role" value={user.company?.title ?? "—"} />
+                  <InfoItem
+                    label="Department"
+                    value={user.company?.department ?? "—"}
+                  />
                 </div>
               </Panel>
 
@@ -206,32 +215,34 @@ export default function ProfilePage() {
                 <div className="grid gap-8 md:grid-cols-4">
                   <InfoItem
                     label="Street Address"
-                    value={isEditing ? form.address : user.address.address}
+                    value={isEditing ? form.address : user.address?.address ?? ""}
                     editing={isEditing}
                     onChange={(value) => setField("address", value)}
                     wide
                   />
                   <InfoItem
                     label="City"
-                    value={isEditing ? form.city : user.address.city}
+                    value={isEditing ? form.city : user.address?.city ?? ""}
                     editing={isEditing}
                     onChange={(value) => setField("city", value)}
                   />
                   <InfoItem
                     label="State"
-                    value={isEditing ? form.state : user.address.state}
+                    value={isEditing ? form.state : user.address?.state ?? ""}
                     editing={isEditing}
                     onChange={(value) => setField("state", value)}
                   />
                   <InfoItem
                     label="Zip"
-                    value={isEditing ? form.postalCode : user.address.postalCode}
+                    value={
+                      isEditing ? form.postalCode : user.address?.postalCode ?? ""
+                    }
                     editing={isEditing}
                     onChange={(value) => setField("postalCode", value)}
                   />
                   <InfoItem
                     label="Country"
-                    value={isEditing ? form.country : user.address.country}
+                    value={isEditing ? form.country : user.address?.country ?? ""}
                     editing={isEditing}
                     onChange={(value) => setField("country", value)}
                   />
@@ -243,7 +254,7 @@ export default function ProfilePage() {
                   <div className="space-y-6">
                     <div>
                       <p className="font-semibold text-slate-950">
-                        {user.university}
+                        {user.university ?? "—"}
                       </p>
                       <p className="mt-1 text-slate-500">
                         M.S. in Human-Computer Interaction
