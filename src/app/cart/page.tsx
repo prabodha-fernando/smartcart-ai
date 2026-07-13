@@ -33,8 +33,10 @@ export default function CartPage() {
   const showLoadMore = visibleCount < items.length;
 
   const handleCheckout = () => {
-    toast.success("Order placed! (demo checkout)");
+    if (items.length === 0) return;
+
     clearCart();
+    toast.success("Checkout preview complete. Cart cleared.");
   };
 
   return (

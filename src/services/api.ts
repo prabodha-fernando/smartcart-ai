@@ -160,3 +160,90 @@ export async function getLimitedProducts(
 
   return response.data;
 }
+
+// ─── Cart (server-persisted, per user) ────────────────────────────────────
+// The backend keys items by `productId` and returns computed totals. All of
+// these hit `privateApi`, so the auth interceptor attaches the access token.
+
+export interface ServerCartItem {
+  id: string;
+  productId: number;
+  title: string;
+  price: number;
+  thumbnail: string;
+  rating?: number;
+  quantity: number;
+}
+
+export interface ServerCart {
+  items: ServerCartItem[];
+  totalItems: number;
+  totalPrice: number;
+}
+
+interface CartApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    cart: ServerCart;
+  };
+}
+
+function isCartApiResponse(response: CartApiResponse | ServerCart): response is CartApiResponse {
+  return "data" in response && "cart" in response.data;
+}
+
+function normalizeCartResponse(response: CartApiResponse | ServerCart): ServerCart {
+  if (isCartApiResponse(response)) {
+    return response.data.cart;
+  }
+
+  return response;
+}
+
+export async function getCart(): Promise<ServerCart> {
+  const response = await privateApi.get<CartApiResponse | ServerCart>("/cart");
+
+  return normalizeCartResponse(response.data);
+}
+
+export async function addCartItem(
+  productId: number,
+  quantity: number = 1
+): Promise<ServerCart> {
+  const response = await privateApi.post<CartApiResponse | ServerCart>("/cart/items", {
+    productId,
+    quantity,
+  });
+
+  return normalizeCartResponse(response.data);
+}
+
+/** Sets an item's quantity to an absolute value (not a delta). */
+export async function updateCartItem(
+  productId: number,
+  quantity: number
+): Promise<ServerCart> {
+  const response = await privateApi.patch<CartApiResponse | ServerCart>(
+    `/cart/items/${productId}`,
+    {
+      quantity,
+    }
+  );
+
+  return normalizeCartResponse(response.data);
+}
+
+export async function removeCartItem(productId: number): Promise<ServerCart> {
+  const response = await privateApi.delete<CartApiResponse | ServerCart>(
+    `/cart/items/${productId}`
+  );
+
+  return normalizeCartResponse(response.data);
+}
+
+export async function clearServerCart(): Promise<ServerCart> {
+  const response = await privateApi.delete<CartApiResponse | ServerCart>("/cart");
+
+  return normalizeCartResponse(response.data);
+}
