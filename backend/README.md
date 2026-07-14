@@ -85,6 +85,7 @@ npm run seed    # creates emilys / emilyspass
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run compiled output |
 | `npm run typecheck` | Type-check without emitting |
+| `npm test` | Run isolated API integration tests |
 
 ## Project structure
 
@@ -149,7 +150,7 @@ Product display fields (title, price, thumbnail, rating) are **snapshotted** fro
 | Method | Path | Auth | Body | Notes |
 |--------|------|------|------|-------|
 | GET | `/wishlist` | 🔒 | — | Current wishlist |
-| POST | `/wishlist/items` | 🔒 | `productId, note?` | Adds a product (idempotent; updates `note` if resent) |
+| POST | `/wishlist/items` | 🔒 | `productId` | Adds a product snapshot; returns `409` if it already exists |
 | DELETE | `/wishlist/items/:productId` | 🔒 | — | Removes a product |
 
 ### Orders (per user)
