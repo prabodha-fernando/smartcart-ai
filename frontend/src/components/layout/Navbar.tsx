@@ -22,10 +22,10 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/products", label: "Products" },
   { href: "/categories", label: "Categories" },
-  { href: "/favorites", label: "Favorites" },
   { href: "/orders", label: "Orders" },
-  { href: "/profile", label: "Profile" },
 ];
+
+const mobileLinks = [...links, { href: "/profile", label: "Profile" }];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -233,7 +233,7 @@ export default function Navbar() {
                 </label>
               </form>
 
-              {[...links, { href: "/cart", label: "Cart" }].map((link) => (
+              {mobileLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -245,16 +245,6 @@ export default function Navbar() {
                   onClick={() => setOpen(false)}
                 >
                   {link.label}
-                  {link.href === "/cart" && showCartBadge && (
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-700 px-1 text-[11px] font-semibold text-white">
-                      {badge}
-                    </span>
-                  )}
-                  {link.href === "/favorites" && showFavoritesBadge && (
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-semibold text-white">
-                      {favoritesBadge}
-                    </span>
-                  )}
                 </Link>
               ))}
 
