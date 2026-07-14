@@ -1,3 +1,4 @@
+import axios from "axios";
 import { publicApi, privateApi } from "@/lib/axios";
 import {
   AuthApiData,
@@ -255,40 +256,59 @@ export interface ServerWishlistItem {
   title: string;
   price: number;
   thumbnail: string;
-  rating: number;
-  note: string;
 }
 
 export interface ServerWishlist {
+  id: string;
   items: ServerWishlistItem[];
   totalItems: number;
 }
 
-export async function getWishlist(): Promise<ServerWishlist> {
-  const response = await privateApi.get("/wishlist");
-
-  return response.data;
+interface WishlistApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    wishlist: ServerWishlist;
+  };
 }
 
-/** Adds a product; resending with a note updates the existing note. */
-export async function addWishlistItem(
-  productId: number,
-  note?: string
-): Promise<ServerWishlist> {
-  const response = await privateApi.post("/wishlist/items", {
-    productId,
-    ...(note !== undefined ? { note } : {}),
-  });
+function normalizeWishlistResponse(response: WishlistApiResponse): ServerWishlist {
+  return response.data.wishlist;
+}
 
-  return response.data;
+export async function getWishlist(): Promise<ServerWishlist> {
+  const response = await privateApi.get<WishlistApiResponse>("/wishlist");
+
+  return normalizeWishlistResponse(response.data);
+}
+
+export async function addWishlistItem(productId: number): Promise<ServerWishlist> {
+  try {
+    const response = await privateApi.post<WishlistApiResponse>(
+      "/wishlist/items",
+      { productId }
+    );
+
+    return normalizeWishlistResponse(response.data);
+  } catch (error) {
+    // Guest favorites may already exist on the server when merged after login.
+    // A duplicate means the desired state is already present, so re-sync it.
+    if (axios.isAxiosError(error) && error.response?.status === 409) {
+      return getWishlist();
+    }
+
+    throw error;
+  }
 }
 
 export async function removeWishlistItem(
   productId: number
 ): Promise<ServerWishlist> {
-  const response = await privateApi.delete(`/wishlist/items/${productId}`);
+  const response = await privateApi.delete<WishlistApiResponse>(
+    `/wishlist/items/${productId}`
+  );
 
-  return response.data;
+  return normalizeWishlistResponse(response.data);
 }
 
 // ─── Orders ───────────────────────────────────────────────────────────────
@@ -318,24 +338,40 @@ export interface OrdersResponse {
   totalPages: number;
 }
 
+interface OrderApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    order: Order;
+  };
+}
+
+interface OrdersApiResponse {
+  success: boolean;
+  message: string;
+  data: OrdersResponse;
+}
+
 /** Checkout: converts the server cart into an order and clears the cart. */
 export async function createOrder(): Promise<Order> {
-  const response = await privateApi.post("/orders", {});
+  const response = await privateApi.post<OrderApiResponse>("/orders", {});
 
-  return response.data;
+  return response.data.data.order;
 }
 
 export async function getOrders(
   page: number = 1,
   limit: number = 10
 ): Promise<OrdersResponse> {
-  const response = await privateApi.get(`/orders?page=${page}&limit=${limit}`);
+  const response = await privateApi.get<OrdersApiResponse>(
+    `/orders?page=${page}&limit=${limit}`
+  );
 
-  return response.data;
+  return response.data.data;
 }
 
 export async function getOrderById(id: string): Promise<Order> {
-  const response = await privateApi.get(`/orders/${id}`);
+  const response = await privateApi.get<OrderApiResponse>(`/orders/${id}`);
 
-  return response.data;
+  return response.data.data.order;
 }

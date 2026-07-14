@@ -28,9 +28,8 @@ function mapServerWishlist(wishlist: ServerWishlist): FavoriteItem[] {
     id: i.productId,
     title: i.title,
     price: i.price,
-    rating: i.rating,
+    rating: 0,
     thumbnail: i.thumbnail,
-    note: i.note || undefined,
     addedAt: base - index,
   }));
 }
@@ -115,9 +114,8 @@ export const useFavoritesStore = create<FavoritesState>()(
             ),
           }));
 
-          if (isAuthed()) {
-            addWishlistItem(id, trimmed).then(applyServer).catch(resync);
-          }
+          // Notes remain a local UI preference; the assignment's wishlist
+          // contract persists only productId/title/price/thumbnail.
         },
 
         // DELETE (all)
@@ -152,7 +150,7 @@ export const useFavoritesStore = create<FavoritesState>()(
           set({ syncing: true });
           try {
             for (const item of local) {
-              await addWishlistItem(item.id, item.note);
+              await addWishlistItem(item.id);
             }
             const wishlist = await getWishlist();
             set({ favorites: mapServerWishlist(wishlist) });

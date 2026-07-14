@@ -18,6 +18,8 @@ export interface IOrder {
   items: IOrderItem[];
   total: number;
   status: "paid" | "pending" | "cancelled";
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const orderItemSchema = new Schema<IOrderItem>(

@@ -23,6 +23,7 @@ const links = [
   { href: "/products", label: "Products" },
   { href: "/categories", label: "Categories" },
   { href: "/favorites", label: "Favorites" },
+  { href: "/orders", label: "Orders" },
   { href: "/profile", label: "Profile" },
 ];
 

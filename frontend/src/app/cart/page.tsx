@@ -6,11 +6,13 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import EmptyState from "@/components/ui/EmptyState";
 import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import { useCartStore } from "@/store/cartStore";
+import { createOrder } from "@/services/api";
 import { Reveal } from "@/components/ui/motion";
 import { AnimatePresence, motion } from "framer-motion";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import toast from "react-hot-toast";
 
@@ -23,8 +25,11 @@ export default function CartPage() {
   const decrement = useCartStore((state) => state.decrement);
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
+  const resetLocal = useCartStore((state) => state.resetLocal);
   const subtotal = useCartStore((state) => state.subtotal());
   const [visibleCount, setVisibleCount] = useState(8);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const router = useRouter();
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
   const shipping = items.length > 0 ? SHIPPING_FLAT : 0;
@@ -32,11 +37,20 @@ export default function CartPage() {
   const visibleItems = items.slice(0, visibleCount);
   const showLoadMore = visibleCount < items.length;
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (items.length === 0) return;
 
-    clearCart();
-    toast.success("Checkout preview complete. Cart cleared.");
+    setCheckingOut(true);
+    try {
+      const order = await createOrder();
+      resetLocal();
+      toast.success("Order placed successfully");
+      router.push(`/orders/${order.id}`);
+    } catch {
+      toast.error("Checkout failed. Please try again.");
+    } finally {
+      setCheckingOut(false);
+    }
   };
 
   return (
@@ -211,10 +225,17 @@ export default function CartPage() {
 
                 <button
                   onClick={handleCheckout}
-                  className="primary-pill mt-8 w-full py-4 text-sm font-semibold"
+                  disabled={checkingOut}
+                  className="primary-pill mt-8 w-full py-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Checkout
+                  {checkingOut ? "Placing order..." : "Checkout"}
                 </button>
+                <Link
+                  href="/orders"
+                  className="mt-4 block text-center text-sm font-medium text-slate-600 hover:text-blue-700"
+                >
+                  View order history
+                </Link>
                 <Link
                   href="/products"
                   className="mt-3 block text-center text-sm font-medium text-blue-700"

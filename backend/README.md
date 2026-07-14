@@ -1,8 +1,9 @@
 # SmartCart AI — Backend API
 
 Standalone REST API (Node.js + Express + TypeScript + MongoDB) that replaces
-DummyJSON/localStorage for **auth, cart, wishlist, and orders**. Products are
-still sourced from DummyJSON, proxied through this backend.
+DummyJSON auth and localStorage-only user data for **auth, cart, wishlist, and
+orders**. Products are still sourced from DummyJSON, proxied through this
+backend.
 
 > Build progress is tracked day-by-day; this README is updated as endpoints land.
 
@@ -99,6 +100,35 @@ environment. Run the requests in this order:
 5. `Wishlist/Delete Item`
 
 The wishlist requests use the saved token as Bearer authentication.
+
+## Frontend integration changes
+
+The Next.js application now uses this backend as its API source:
+
+- Auth registration, login, refresh, and current-user requests use `/api/auth`.
+- Product and category requests use the backend's DummyJSON proxy under
+  `/api/products`, keeping upstream access in one place.
+- Signed-in carts and wishlists are server-authoritative and scoped to the JWT
+  user. Zustand remains an optimistic UI mirror and a guest-only fallback.
+- Checkout calls `POST /api/orders`; after success, the local cart mirror is
+  cleared and the user is sent to the persisted order detail page.
+- `/orders` and `/orders/:id` display the authenticated user's order history.
+
+This replaces browser-only persistence so user data survives cleared browser
+storage and follows the same account across devices. See [`CHANGES.md`](CHANGES.md)
+for the implementation summary and end-to-end checklist.
+
+## Testing
+
+```bash
+npm test
+npm run typecheck
+npm run build
+```
+
+The integration suites use an isolated in-memory MongoDB and cover Auth, Cart,
+Wishlist, and Orders, including JWT protection, validation, persistence,
+checkout cart clearing, and cross-user isolation.
 
 ## Project structure
 
