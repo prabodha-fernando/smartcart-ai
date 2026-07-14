@@ -1,61 +1,59 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
-import { Wishlist, type IWishlist } from "../models/Wishlist.js";
-import { fetchProductSnapshot } from "../services/product.service.js";
-import type { HydratedDocument } from "mongoose";
+import {
+  addItemToWishlist,
+  getWishlistForUser,
+  removeItemFromWishlist,
+} from "../services/wishlist.service.js";
+import type {
+  AddWishlistItemInput,
+  WishlistItemParamInput,
+} from "../validators/wishlist.validator.js";
 
-function serializeWishlist(wishlist: HydratedDocument<IWishlist>) {
-  const items = wishlist.items.map((i) => ({
-    productId: i.productId,
-    title: i.title,
-    price: i.price,
-    thumbnail: i.thumbnail,
-    rating: i.rating,
-    note: i.note,
-  }));
-  return { items, totalItems: items.length };
-}
+function getUserId(userId?: string) {
+  if (!userId) {
+    throw ApiError.unauthorized("Unauthorized");
+  }
 
-async function getOrCreateWishlist(userId: string) {
-  const existing = await Wishlist.findOne({ user: userId });
-  return existing ?? (await Wishlist.create({ user: userId, items: [] }));
+  return userId;
 }
 
 /** GET /wishlist */
 export const getWishlist = asyncHandler(async (req, res) => {
-  const wishlist = await getOrCreateWishlist(req.userId!);
-  res.json(serializeWishlist(wishlist));
+  const wishlist = await getWishlistForUser(getUserId(req.userId));
+
+  res.status(200).json({
+    success: true,
+    message: "Wishlist fetched successfully",
+    data: { wishlist },
+  });
 });
 
-/** POST /wishlist/items — add a product (idempotent; updates the note if resent). */
-export const addItem = asyncHandler(async (req, res) => {
-  const { productId, note } = req.body;
-  const wishlist = await getOrCreateWishlist(req.userId!);
+/** POST /wishlist/items */
+export const addWishlistItem = asyncHandler(async (req, res) => {
+  const wishlist = await addItemToWishlist(
+    getUserId(req.userId),
+    req.body as AddWishlistItemInput
+  );
 
-  const existing = wishlist.items.find((i) => i.productId === productId);
-  if (existing) {
-    if (note !== undefined) existing.note = note;
-  } else {
-    const snapshot = await fetchProductSnapshot(productId);
-    wishlist.items.push({ ...snapshot, note: note ?? "" });
-  }
-
-  await wishlist.save();
-  res.status(201).json(serializeWishlist(wishlist));
+  res.status(201).json({
+    success: true,
+    message: "Product added to wishlist",
+    data: { wishlist },
+  });
 });
 
 /** DELETE /wishlist/items/:productId */
-export const removeItem = asyncHandler(async (req, res) => {
-  const productId = Number(req.params.productId);
-  if (!Number.isInteger(productId) || productId <= 0) {
-    throw ApiError.badRequest("Invalid product id");
-  }
+export const removeWishlistItem = asyncHandler(async (req, res) => {
+  const { productId } = req.params as unknown as WishlistItemParamInput;
+  const wishlist = await removeItemFromWishlist(
+    getUserId(req.userId),
+    productId
+  );
 
-  const wishlist = await getOrCreateWishlist(req.userId!);
-  const index = wishlist.items.findIndex((i) => i.productId === productId);
-  if (index === -1) throw ApiError.notFound("Item not in wishlist");
-
-  wishlist.items.splice(index, 1);
-  await wishlist.save();
-  res.json(serializeWishlist(wishlist));
+  res.status(200).json({
+    success: true,
+    message: "Product removed from wishlist",
+    data: { wishlist },
+  });
 });
