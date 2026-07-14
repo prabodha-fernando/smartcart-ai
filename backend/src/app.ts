@@ -5,7 +5,7 @@ import morgan from "morgan";
 import { corsOrigins, env } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import apiRouter from "./routes/index.js";
-import { errorHandler, notFound } from "./middleware/errorHandler.js";
+import { errorHandler, notFound } from "./middleware/error-handler.middleware.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
 
 /**

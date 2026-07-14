@@ -247,3 +247,95 @@ export async function clearServerCart(): Promise<ServerCart> {
 
   return normalizeCartResponse(response.data);
 }
+
+// ─── Wishlist (server-persisted, per user) ────────────────────────────────
+
+export interface ServerWishlistItem {
+  productId: number;
+  title: string;
+  price: number;
+  thumbnail: string;
+  rating: number;
+  note: string;
+}
+
+export interface ServerWishlist {
+  items: ServerWishlistItem[];
+  totalItems: number;
+}
+
+export async function getWishlist(): Promise<ServerWishlist> {
+  const response = await privateApi.get("/wishlist");
+
+  return response.data;
+}
+
+/** Adds a product; resending with a note updates the existing note. */
+export async function addWishlistItem(
+  productId: number,
+  note?: string
+): Promise<ServerWishlist> {
+  const response = await privateApi.post("/wishlist/items", {
+    productId,
+    ...(note !== undefined ? { note } : {}),
+  });
+
+  return response.data;
+}
+
+export async function removeWishlistItem(
+  productId: number
+): Promise<ServerWishlist> {
+  const response = await privateApi.delete(`/wishlist/items/${productId}`);
+
+  return response.data;
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────
+
+export interface OrderItem {
+  productId: number;
+  title: string;
+  price: number;
+  thumbnail: string;
+  quantity: number;
+}
+
+export interface Order {
+  id: string;
+  items: OrderItem[];
+  total: number;
+  status: "paid" | "pending" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrdersResponse {
+  orders: Order[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/** Checkout: converts the server cart into an order and clears the cart. */
+export async function createOrder(): Promise<Order> {
+  const response = await privateApi.post("/orders", {});
+
+  return response.data;
+}
+
+export async function getOrders(
+  page: number = 1,
+  limit: number = 10
+): Promise<OrdersResponse> {
+  const response = await privateApi.get(`/orders?page=${page}&limit=${limit}`);
+
+  return response.data;
+}
+
+export async function getOrderById(id: string): Promise<Order> {
+  const response = await privateApi.get(`/orders/${id}`);
+
+  return response.data;
+}
