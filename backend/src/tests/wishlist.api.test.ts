@@ -10,15 +10,26 @@ import { dummyjson } from "../services/product.service.js";
 const app = createApp();
 let mongoServer: MongoMemoryServer;
 
-async function registerAndGetToken() {
-  const response = await request(app).post("/api/auth/register").send({
-    name: "Wishlist Tester",
+async function registerAndLogin() {
+  const credentials = {
     email: "wishlist@example.com",
     password: "secure-password-123",
+  };
+  const registerResponse = await request(app).post("/api/auth/register").send({
+    name: "Wishlist Tester",
+    ...credentials,
   });
 
-  expect(response.status).toBe(201);
-  return response.body.data.accessToken as string;
+  expect(registerResponse.status).toBe(201);
+
+  const loginResponse = await request(app)
+    .post("/api/auth/login")
+    .send(credentials);
+
+  expect(loginResponse.status).toBe(200);
+  expect(loginResponse.body.data.accessToken).toEqual(expect.any(String));
+
+  return loginResponse.body.data.accessToken as string;
 }
 
 beforeAll(async () => {
@@ -57,7 +68,7 @@ describe("Wishlist API", () => {
   });
 
   it("rejects invalid add-item payloads", async () => {
-    const token = await registerAndGetToken();
+    const token = await registerAndLogin();
     const response = await request(app)
       .post("/api/wishlist/items")
       .set("Authorization", `Bearer ${token}`)
@@ -71,7 +82,7 @@ describe("Wishlist API", () => {
   });
 
   it("adds, persists, reads, prevents duplicates, and removes a product", async () => {
-    const token = await registerAndGetToken();
+    const token = await registerAndLogin();
     const authorization = { Authorization: `Bearer ${token}` };
 
     const addResponse = await request(app)

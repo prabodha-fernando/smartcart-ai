@@ -1,0 +1,31 @@
+meta {
+  name: Login and save token
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "wishlist@example.com",
+    "password": "secure-password-123"
+  }
+}
+
+script:post-response {
+  if (res.status === 200 && res.body?.data?.accessToken) {
+    bru.setEnvVar("accessToken", res.body.data.accessToken);
+  }
+}
+
+tests {
+  test("login succeeds and returns an access token", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.accessToken).to.be.a("string");
+  });
+}

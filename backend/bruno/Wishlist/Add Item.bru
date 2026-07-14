@@ -1,0 +1,28 @@
+meta {
+  name: Add wishlist item
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/wishlist/items
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "productId": 1
+  }
+}
+
+tests {
+  test("product is added", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.data.wishlist.totalItems).to.equal(1);
+  });
+}

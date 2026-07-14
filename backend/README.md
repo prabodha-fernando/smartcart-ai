@@ -87,6 +87,19 @@ npm run seed    # creates emilys / emilyspass
 | `npm run typecheck` | Type-check without emitting |
 | `npm test` | Run isolated API integration tests |
 
+## Bruno API collection
+
+Open the `bruno/` directory as a collection and select the `Local`
+environment. Run the requests in this order:
+
+1. `Auth/Register`
+2. `Auth/Login` (automatically saves `accessToken`)
+3. `Wishlist/Add Item`
+4. `Wishlist/Get Wishlist`
+5. `Wishlist/Delete Item`
+
+The wishlist requests use the saved token as Bearer authentication.
+
 ## Project structure
 
 ```
