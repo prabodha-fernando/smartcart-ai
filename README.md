@@ -20,9 +20,8 @@ The frontend runs at `http://localhost:3000` by default. See
 [`frontend/README.md`](frontend/README.md) for its features and environment
 variables.
 
-For AI features, configure the same server-only `AI_PROXY_SECRET` in both
-applications, set `BACKEND_API_URL=http://localhost:4000/api` in the frontend,
-and keep `NVIDIA_NIM_API_KEY` only in the backend environment.
+For AI features, keep `NVIDIA_NIM_API_KEY` only in the backend environment.
+The frontend uses the same backend API base URL as auth, cart, and orders.
 
 ## Backend
 

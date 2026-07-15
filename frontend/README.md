@@ -10,13 +10,12 @@ AI-powered shopping assistant built with Next.js, TypeScript, TanStack Query, Zu
 - TanStack Query
 - Zustand
 - Axios
-- DummyJSON API (product/auth data)
-- NVIDIA NIM (LLM inference, via the OpenAI SDK)
+- Express + MongoDB backend for auth, products, cart, wishlist, orders, and AI
 
 ## Features
 
 ### Authentication
-- Login with DummyJSON auth
+- Login with the SmartCart Express API
 - Persistent sessions & refresh tokens
 - Protected routes
 
@@ -36,13 +35,12 @@ AI-powered shopping assistant built with Next.js, TypeScript, TanStack Query, Zu
 - Persistent, migrated Zustand store
 - Nav badge count, empty states
 
-### AI Assistant (NVIDIA NIM)
+### AI Assistant
 - Conversational, multi-turn shopping assistant
-- Understands intent and returns **structured JSON** (never invents products)
-- Backend resolves real products from DummyJSON based on the AI's decision
+- Backend resolves and ranks real products from DummyJSON
 - Intent-gated: greetings/thanks/out-of-scope don't trigger a product search
 - Asks follow-up questions instead of guessing
-- **"Why buy this"** streamed product blurb on product pages
+- Grounded "Why buy this" product explanation on product pages
 
 ### UX
 - Loading skeletons, error & empty states
@@ -50,44 +48,21 @@ AI-powered shopping assistant built with Next.js, TypeScript, TanStack Query, Zu
 
 ## AI Architecture
 
-The AI follows the supervisor's NVIDIA NIM guidelines — the system prompt stays
-on the server, the model only decides intent/filters, and the **backend owns all
-business logic** (search, filter, ranking, pagination).
+All active AI behavior lives in the Express backend. The frontend sends the
+conversation and optional product context to a validated domain endpoint.
+NVIDIA credentials, catalog lookup, filtering, ranking, prompting, fallback
+responses, and distributed rate limiting remain backend-only.
 
 ```text
-Frontend (sends only conversation + optional lastProducts)
-   │
-   ▼
-src/app/api/ai/chat/route.ts        thin controller
-   │
-   ▼
-src/services/chatService.ts         builds prompt → calls AI → validates JSON
-   │                                 → resolves real products from DummyJSON
-   ▼
-src/lib/ai/
-   ├── nvidiaClient.ts   ONE central AI client (JSON call + streaming)
-   ├── promptBuilder.ts  hidden system prompt (never sent to frontend)
-   └── types.ts          AIDecision / AIFilters schema + category list
+Next.js UI → Express /api/ai/chat or /api/ai/why-buy
+                    ├── Zod validation
+                    ├── MongoDB user/IP rate limit
+                    ├── DummyJSON catalog resolution
+                    └── NVIDIA NIM with grounded fallback
 ```
 
-Structured decision returned by the model (enforced with
-`response_format: { type: "json_object" }`):
-
-```json
-{
-  "intent": "product_search",
-  "requiresApiCall": true,
-  "apiAction": "search_products",
-  "needsMoreInformation": false,
-  "missingInformation": [],
-  "filters": { "category": "laptops", "maxPrice": 1200, "purpose": "gaming" },
-  "reply": "Here are some gaming laptops under $1200.",
-  "confidenceScore": 90
-}
-```
-
-> Model: `meta/llama-3.1-8b-instruct`. The larger 70B/675B models are
-> unavailable on this account (timeout / 429), so the reliable 8B model is used.
+The response contains a grounded reply, resolved product cards, intent, and a
+flag indicating whether a new catalog search occurred.
 
 ## Installation
 
@@ -104,25 +79,20 @@ npm run dev
 Create a `.env.local` (keep it out of version control):
 
 ```env
-# Product/auth data source
-NEXT_PUBLIC_BASE_URL=https://dummyjson.com
-
-# NVIDIA NIM (server-side only — never exposed to the frontend)
-NVIDIA_NIM_API_KEY=your_nvidia_api_key
-# Optional override (defaults to the NVIDIA NIM endpoint below)
-NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
+NEXT_PUBLIC_BASE_URL=http://localhost:4000/api
+BACKEND_API_URL=http://localhost:4000/api
 ```
 
 ## API Endpoints
 
-App routes:
+Backend AI routes:
 
 ```text
-POST /api/ai/chat        conversational assistant (structured JSON → real products)
-POST /api/ai/why-buy     streamed "why buy this" product blurb
+POST /api/ai/chat        catalog-grounded conversational assistant
+POST /api/ai/why-buy     grounded product explanation
 ```
 
-DummyJSON (via Axios):
+Backend API:
 
 ```text
 POST /auth/login

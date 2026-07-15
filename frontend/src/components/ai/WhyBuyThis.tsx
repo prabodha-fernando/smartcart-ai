@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RotateCcw, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Product } from "@/types/product";
+import { getWhyBuy } from "@/services/api";
 
 export default function WhyBuyThis({ product }: { product: Product }) {
   const [text, setText] = useState("");
@@ -19,45 +20,25 @@ export default function WhyBuyThis({ product }: { product: Product }) {
     const id = ++requestId.current;
 
     try {
-      const response = await fetch("/api/ai/why-buy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product: {
-            title: product.title,
-            price: product.price,
-            rating: product.rating,
-            description: product.description,
-            category: product.category,
-            brand: product.brand,
-            stock: product.stock,
-            discountPercentage: product.discountPercentage,
-            tags: product.tags,
-            warrantyInformation: product.warrantyInformation,
-            shippingInformation: product.shippingInformation,
-            availabilityStatus: product.availabilityStatus,
-          },
-        }),
+      const result = await getWhyBuy({
+        title: product.title,
+        price: product.price,
+        rating: product.rating,
+        description: product.description,
+        category: product.category,
+        brand: product.brand,
+        stock: product.stock,
+        discountPercentage: product.discountPercentage,
+        tags: product.tags,
+        warrantyInformation: product.warrantyInformation,
+        shippingInformation: product.shippingInformation,
+        availabilityStatus: product.availabilityStatus,
       });
 
       if (id !== requestId.current) return; // superseded while awaiting
 
-      if (!response.ok || !response.body) {
-        throw new Error("Request failed");
-      }
-
       setFailed(false);
-      setText("");
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (id !== requestId.current) return; // superseded by a newer request
-        setText((prev) => prev + decoder.decode(value, { stream: true }));
-      }
+      setText(result);
     } catch {
       if (id === requestId.current) setFailed(true);
     } finally {
