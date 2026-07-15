@@ -5,9 +5,10 @@ import type { AiChatInput, WhyBuyInput } from "../validators/ai.validator.js";
 interface CatalogProduct {
   id: number; title: string; price: number; rating: number; thumbnail: string;
   category?: string; description?: string; brand?: string;
+  reviews?: unknown[];
 }
 
-type SearchSort = "price_asc" | "price_desc" | "rating" | "newest" | null;
+type SearchSort = "price_asc" | "price_desc" | "rating" | "best_selling" | "newest" | null;
 interface SearchPlan {
   query: string | null;
   categories: string[];
@@ -110,7 +111,9 @@ async function getShoppingDecision(input: AiChatInput): Promise<ShoppingDecision
   const raw = await completeJson(
     `Understand exactly what the shopper expects. Return only JSON: ` +
     `{"intent":"product_search|product_question|app_question|out_of_scope","requiresProducts":true,"reply":"short direct answer","search":{"query":null,"categories":[],"brand":null,"minPrice":null,"maxPrice":null,"minRating":null,"sort":null,"limit":4}}. ` +
-    `Use only explicit constraints. sort is price_asc, price_desc, rating, newest, or null. limit is 1-4. Keep reply concise and do not add information the customer did not request.\n${transcript}`,
+    `Use only explicit constraints. sort is price_asc, price_desc, rating, best_selling, newest, or null. ` +
+    `Use rating only when the shopper asks for top/highest/best rated. Use best_selling only for best-selling or most-popular requests. ` +
+    `limit is 1-4. Keep reply concise and do not add information the customer did not request.\n${transcript}`,
     320
   );
   const intent = raw && typeof raw.intent === "string" && ["product_search", "product_question", "app_question", "out_of_scope"].includes(raw.intent)
@@ -176,18 +179,26 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     : /most expensive|premium|highest price/.test(lower) ? "price_desc"
     : /newest|latest|recent/.test(lower) ? "newest"
     : /best rated|highest rated|top rated/.test(lower) ? "rating"
+    : /best[- ]?selling|most sold|popular|most purchased/.test(lower) ? "best_selling"
     : plan.sort;
   if (requestedSort === "price_asc") products.sort((a, b) => a.price - b.price);
   else if (requestedSort === "price_desc") products.sort((a, b) => b.price - a.price);
   else if (requestedSort === "newest") products.sort((a, b) => b.id - a.id);
   else if (requestedSort === "rating") products.sort((a, b) => b.rating - a.rating);
+  else if (requestedSort === "best_selling") {
+    products.sort((a, b) => (b.reviews?.length ?? 0) - (a.reviews?.length ?? 0) || b.rating - a.rating);
+  }
   else products.sort((a, b) => relevanceScore(b, lower) - relevanceScore(a, lower) || b.rating - a.rating);
   const rating = lower.match(/(?:at least|minimum|min|above|over)?\s*(\d(?:\.\d)?)\s*(?:star|stars|rated)/);
   if (rating) products = products.filter((product) => product.rating >= Number(rating[1]));
   if (!rating && plan.minRating !== null) products = products.filter((product) => product.rating >= plan.minRating!);
   const limit = /\b(one|single|1)\b/.test(lower) ? 1 : plan.limit;
   const shortlist = products.slice(0, 20);
-  const selected = await selectProductsWithAI(shortlist, messages, limit);
+  // Explicit ranking is authoritative; AI must not override "top rated",
+  // "best selling", price, or newest requests after deterministic sorting.
+  const selected = requestedSort
+    ? shortlist.slice(0, limit)
+    : await selectProductsWithAI(shortlist, messages, limit);
   return selected.map(({ id, title, price, rating, thumbnail }) => ({ id, title, price, rating, thumbnail }));
 }
 
@@ -311,7 +322,7 @@ function normalizeSearchPlan(value: unknown): SearchPlan {
   const categories = Array.isArray(raw.categories)
     ? raw.categories.filter((category): category is string => typeof category === "string" && allowedCategories.has(category)).slice(0, 3)
     : [];
-  const sort = typeof raw.sort === "string" && ["price_asc", "price_desc", "rating", "newest"].includes(raw.sort)
+  const sort = typeof raw.sort === "string" && ["price_asc", "price_desc", "rating", "best_selling", "newest"].includes(raw.sort)
     ? raw.sort as SearchSort
     : null;
   const numberOrNull = (candidate: unknown) => typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;

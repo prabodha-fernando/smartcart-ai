@@ -148,6 +148,30 @@ describe("AI API", () => {
     ]);
   });
 
+  it.each([
+    ["Show me one top rated phone", 2],
+    ["Show me one best-selling phone", 3],
+  ])("applies requested ranking only for: %s", async (content, expectedId) => {
+    vi.spyOn(dummyjson, "get").mockResolvedValue({
+      data: {
+        products: [
+          { id: 1, title: "Ordinary Phone", category: "smartphones", price: 300, rating: 4.1, reviews: [{}], thumbnail: "https://example.com/1.png" },
+          { id: 2, title: "Highest Rated Phone", category: "smartphones", price: 500, rating: 4.95, reviews: [{}, {}], thumbnail: "https://example.com/2.png" },
+          { id: 3, title: "Most Reviewed Phone", category: "smartphones", price: 450, rating: 4.6, reviews: [{}, {}, {}, {}, {}], thumbnail: "https://example.com/3.png" },
+        ],
+      },
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products).toHaveLength(1);
+    expect(response.body.products[0].id).toBe(expectedId);
+  });
+
   it("validates requests and produces a grounded fallback blurb", async () => {
     const invalid = await request(app).post("/api/ai/chat").send({ messages: [] });
     expect(invalid.status).toBe(400);
