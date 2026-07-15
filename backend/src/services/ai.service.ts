@@ -93,21 +93,22 @@ export async function resolveAiChat(input: AiChatInput) {
   const decision = await getShoppingDecision(input);
   if (!decision.requiresProducts) {
     if (decision.intent === "product_question" && input.lastProducts.length > 0) {
-      const reply = await groundedReply(latest, input.lastProducts);
+      const reply = await groundedReply(input.messages, input.lastProducts);
       return { reply, products: [], intent: decision.intent, isNewSearch: false };
     }
-    return { reply: decision.reply, products: [], intent: decision.intent, isNewSearch: false };
+    const reply = await conversationalReply(input.messages, decision.intent, decision.reply);
+    return { reply, products: [], intent: decision.intent, isNewSearch: false };
   }
 
   if (isShownProductQuestion(latest) && input.lastProducts.length > 0) {
-    const reply = await groundedReply(latest, input.lastProducts);
+    const reply = await groundedReply(input.messages, input.lastProducts);
     return { reply, products: [], intent: "product_question", isNewSearch: false };
   }
 
   const searchText = buildSearchText(input.messages);
   const products = await findProducts(searchText, input.messages, decision.search);
   const reply = products.length
-    ? await groundedReply(latest, products)
+    ? await groundedReply(input.messages, products)
     : "I couldn't find a matching product right now. Try another product name, category, or budget.";
   return { reply, products, intent: decision.intent, isNewSearch: products.length > 0 };
 }
@@ -168,10 +169,11 @@ export async function resolveWhyBuy(input: WhyBuyInput) {
 
 async function findProducts(text: string, messages: AiChatInput["messages"], plan: SearchPlan) {
   const lower = text.toLowerCase();
+  const explicitPlan = constrainPlanToCustomerRequest(plan, lower);
   const needCategories = needCategoryRules.find((rule) => rule.test.test(lower))?.categories;
   const directCategory = Object.entries(categoryTerms).find(([term]) => new RegExp(`\\b${term}s?\\b`).test(lower))?.[1];
-  const categories = await resolveRequestCategories(lower, needCategories, directCategory, plan);
-  const query = [plan.query, plan.purpose].filter(Boolean).join(" ") || extractQuery(lower);
+  const categories = await resolveRequestCategories(lower, needCategories, directCategory, explicitPlan);
+  const query = [explicitPlan.query, explicitPlan.purpose].filter(Boolean).join(" ") || extractQuery(lower);
   let products: CatalogProduct[];
   if (categories.length > 0) {
     const responses = await Promise.all(
@@ -190,7 +192,7 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
   const relevanceTerms = extractRelevanceTerms(lower);
   const lexicallyRelevant = products.filter((product) => lexicalRelevance(product, relevanceTerms) > 0);
   if (lexicallyRelevant.length > 0) products = lexicallyRelevant;
-  const explicitBrand = plan.brand ?? products.find((product) =>
+  const explicitBrand = explicitPlan.brand ?? products.find((product) =>
     product.brand && lower.includes(product.brand.toLowerCase())
   )?.brand ?? null;
   if (explicitBrand) {
@@ -199,18 +201,18 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
       `${product.brand ?? ""} ${product.title}`.toLowerCase().includes(brand)
     );
   }
-  const requestedColor = plan.color ?? extractRequestedColor(lower);
+  const requestedColor = explicitPlan.color ?? extractRequestedColor(lower);
   if (requestedColor) {
     const color = requestedColor.toLowerCase();
     products = products.filter((product) =>
       `${product.title} ${product.description ?? ""}`.toLowerCase().includes(color)
     );
   }
-  if (plan.inStock === true || /\b(in stock|available now|available products?)\b/.test(lower)) {
+  if (explicitPlan.inStock === true || /\b(in stock|available now|available products?)\b/.test(lower)) {
     products = products.filter((product) => (product.stock ?? 0) > 0);
   }
   const discountMatch = lower.match(/(?:at least|minimum|over|above)\s*(\d+)%\s*(?:off|discount)/);
-  const minDiscount = discountMatch ? Number(discountMatch[1]) : plan.minDiscount;
+  const minDiscount = discountMatch ? Number(discountMatch[1]) : explicitPlan.minDiscount;
   if (minDiscount !== null) {
     products = products.filter((product) => (product.discountPercentage ?? 0) >= minDiscount);
   }
@@ -220,15 +222,15 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
   if (between) products = products.filter((p) => p.price >= Number(between[1]) && p.price <= Number(between[2]));
   if (under) products = products.filter((p) => p.price <= Number(under[1]));
   if (over) products = products.filter((p) => p.price >= Number(over[1]));
-  if (!under && !between && plan.maxPrice !== null) products = products.filter((p) => p.price <= plan.maxPrice!);
-  if (!over && !between && plan.minPrice !== null) products = products.filter((p) => p.price >= plan.minPrice!);
+  if (!under && !between && explicitPlan.maxPrice !== null) products = products.filter((p) => p.price <= explicitPlan.maxPrice!);
+  if (!over && !between && explicitPlan.minPrice !== null) products = products.filter((p) => p.price >= explicitPlan.minPrice!);
   const requestedSort: SearchSort = /cheapest|lowest price|affordable/.test(lower) ? "price_asc"
     : /most expensive|premium|highest price/.test(lower) ? "price_desc"
     : /newest|latest|recent/.test(lower) ? "newest"
     : /best rated|highest rated|top(?:\s+[1-4])?\s+rated/.test(lower) ? "rating"
     : /best[- ]?selling|most sold|popular|most purchased/.test(lower) ? "best_selling"
     : /highest discount|biggest discount|most discounted|best discount/.test(lower) ? "discount"
-    : plan.sort;
+    : explicitPlan.sort;
   if (requestedSort === "price_asc") products.sort((a, b) => a.price - b.price);
   else if (requestedSort === "price_desc") products.sort((a, b) => b.price - a.price);
   else if (requestedSort === "newest") products.sort((a, b) => b.id - a.id);
@@ -249,10 +251,10 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     ? null
     : lower.match(/(?:at least|minimum|min|above|over)?\s*(\d(?:\.\d)?)\s*(?:star|stars|rated)/);
   if (rating) products = products.filter((product) => product.rating >= Number(rating[1]));
-  if (!rating && plan.minRating !== null) products = products.filter((product) => product.rating >= plan.minRating!);
+  if (!rating && explicitPlan.minRating !== null) products = products.filter((product) => product.rating >= explicitPlan.minRating!);
   const explicitLimit = extractRequestedLimit(lower);
   const defaultsToSingleResult = requestedSort === "rating" || requestedSort === "best_selling";
-  const limit = explicitLimit ?? (defaultsToSingleResult ? 1 : plan.limit);
+  const limit = explicitLimit ?? (defaultsToSingleResult ? 1 : explicitPlan.limit);
   const shortlist = products.slice(0, 20);
   // Explicit ranking is authoritative; AI must not override "top rated",
   // "best selling", price, or newest requests after deterministic sorting.
@@ -260,6 +262,28 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     ? shortlist.slice(0, limit)
     : await selectProductsWithAI(shortlist, messages, limit);
   return selected.map(({ id, title, price, rating, thumbnail }) => ({ id, title, price, rating, thumbnail }));
+}
+
+function constrainPlanToCustomerRequest(plan: SearchPlan, request: string): SearchPlan {
+  const mentions = (value: string | null) =>
+    Boolean(value && request.includes(value.toLowerCase()));
+  const hasPriceConstraint = /(?:\$|under|below|up to|less than|over|above|at least|more than|between|budget)\s*\$?\d|\$\d/.test(request);
+  const hasRatingConstraint = /\d(?:\.\d)?\s*(?:star|stars|rated)/.test(request) && !/\btop\s+[1-4]\s+rated\b/.test(request);
+  const hasDiscountConstraint = /\d+%\s*(?:off|discount)|(?:discount|off)\s*(?:of\s*)?\d+%/.test(request);
+  const hasStockConstraint = /\b(in stock|available now|available products?|out of stock)\b/.test(request);
+  const hasSortConstraint = /\b(cheapest|lowest price|affordable|most expensive|premium|highest price|newest|latest|recent|best rated|highest rated|top(?:\s+[1-4])?\s+rated|best[- ]?selling|most sold|popular|most purchased|highest discount|biggest discount|most discounted|best discount)\b/.test(request);
+
+  return {
+    ...plan,
+    brand: mentions(plan.brand) ? plan.brand : null,
+    color: mentions(plan.color) ? plan.color : null,
+    minPrice: hasPriceConstraint ? plan.minPrice : null,
+    maxPrice: hasPriceConstraint ? plan.maxPrice : null,
+    minRating: hasRatingConstraint ? plan.minRating : null,
+    minDiscount: hasDiscountConstraint ? plan.minDiscount : null,
+    inStock: hasStockConstraint ? plan.inStock : null,
+    sort: hasSortConstraint ? plan.sort : null,
+  };
 }
 
 function extractRequestedColor(request: string) {
@@ -420,16 +444,47 @@ function lexicalRelevance(product: CatalogProduct, terms: string[]) {
   );
 }
 
-async function groundedReply(question: string, products: Array<{ title: string; price: number; rating: number }>) {
+async function conversationalReply(
+  messages: AiChatInput["messages"],
+  intent: ShoppingDecision["intent"],
+  fallback: string
+) {
+  const transcript = formatConversation(messages);
+  const generated = await completeText(
+    `You are SmartCart's friendly shopping assistant having a real conversation with a customer. ` +
+    `Answer the latest message directly and naturally in 1-3 short sentences. Use earlier messages for context. ` +
+    `Stay within shopping and SmartCart. SmartCart can browse products, filter and sort the catalog, manage cart and favorites through the UI, and explain products. ` +
+    `For out-of-scope requests, politely redirect to shopping. Do not invent products, policies, orders, or completed actions. No markdown.\n` +
+    `INTENT: ${intent}\nCONVERSATION\n${transcript}`,
+    180,
+    5_000
+  );
+  return generated || fallback;
+}
+
+async function groundedReply(
+  messages: AiChatInput["messages"],
+  products: Array<{ title: string; price: number; rating: number }>
+) {
+  const transcript = formatConversation(messages);
   const facts = products.map((p) => `${p.title}: $${p.price}, ${p.rating}/5`).join("\n");
   const generated = await completeText(
-    `Answer the shopper warmly in 1-2 sentences using only these products. Name at least one listed product exactly.\nQuestion: ${question}\n${facts}`,
-    160,
+    `Continue this customer conversation naturally in 1-3 short sentences. Answer the latest question directly using only the listed catalog products and their facts. ` +
+    `Use earlier messages for context. Name at least one listed product exactly. Do not invent features or products. No markdown.\n` +
+    `CONVERSATION\n${transcript}\nCATALOG PRODUCTS\n${facts}`,
+    200,
     5_000
   );
   return generated && referencesSelectedProduct(generated, products)
     ? generated
     : fallbackGroundedReply(products);
+}
+
+function formatConversation(messages: AiChatInput["messages"]) {
+  return messages
+    .slice(-10)
+    .map((message) => `${message.role === "user" ? "Customer" : "Assistant"}: ${message.content}`)
+    .join("\n");
 }
 
 function referencesSelectedProduct(

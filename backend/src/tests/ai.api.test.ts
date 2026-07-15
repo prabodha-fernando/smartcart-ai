@@ -50,6 +50,38 @@ describe("AI API", () => {
     expect(catalog).not.toHaveBeenCalled();
   });
 
+  it("uses conversation history for a natural product follow-up", async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as { messages?: Array<{ content?: string }> };
+      const prompt = body.messages?.[0]?.content ?? "";
+      expect(prompt).toContain("Customer: Show me two phones");
+      expect(prompt).toContain("Customer: Which one is better for my budget?");
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: "Budget Phone is the better fit at $300.00 with a 4.5/5 rating." } }],
+        }),
+      } as Response;
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [
+        { role: "user", content: "Show me two phones" },
+        { role: "assistant", content: "Here are two options." },
+        { role: "user", content: "Which one is better for my budget?" },
+      ],
+      lastProducts: [
+        { id: 1, title: "Budget Phone", price: 300, rating: 4.5, thumbnail: "https://example.com/1.png" },
+        { id: 2, title: "Premium Phone", price: 800, rating: 4.8, thumbnail: "https://example.com/2.png" },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.intent).toBe("product_question");
+    expect(response.body.reply).toContain("Budget Phone");
+    expect(response.body.products).toEqual([]);
+  });
+
   it.each([
     ["Thank you", "gratitude"],
     ["Tell me today's weather", "out_of_scope"],
@@ -234,6 +266,48 @@ describe("AI API", () => {
     expect(response.body.products).toEqual([
       expect.objectContaining({ id: 21, title: "Reliable Phone" }),
     ]);
+  });
+
+  it("ignores AI constraints that the customer did not explicitly request", async () => {
+    vi.spyOn(dummyjson, "get").mockResolvedValue({
+      data: {
+        products: [
+          { id: 1, title: "Phone A", brand: "Samsung", category: "smartphones", price: 300, rating: 4.8, thumbnail: "https://example.com/1.png" },
+          { id: 2, title: "Phone B", brand: "Realme", category: "smartphones", price: 450, rating: 4.7, thumbnail: "https://example.com/2.png" },
+          { id: 3, title: "Phone C", brand: "Apple", category: "smartphones", price: 900, rating: 4.9, thumbnail: "https://example.com/3.png" },
+        ],
+      },
+    });
+    vi.mocked(globalThis.fetch).mockImplementation(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as { response_format?: unknown };
+      const content = body.response_format
+        ? JSON.stringify({
+            intent: "product_search",
+            requiresProducts: true,
+            search: {
+              categories: ["smartphones"],
+              brand: "Apple",
+              color: "black",
+              maxPrice: 600,
+              minRating: 5,
+              sort: "rating",
+              limit: 2,
+            },
+          })
+        : "Phone A and Phone B are the strongest options for this request.";
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ message: { content } }] }),
+      } as Response;
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: "Show me top 2 rated phones under $600" }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products.map((product: { id: number }) => product.id)).toEqual([1, 2]);
   });
 
   it("rejects an AI reply that names a product outside the selected catalog results", async () => {

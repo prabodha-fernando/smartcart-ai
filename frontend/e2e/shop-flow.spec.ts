@@ -28,6 +28,10 @@ test("login, cart, wishlist, checkout, and order history work end to end", async
   });
   await expect(assistant.getByText(/rating|rated|matching|match/i).first()).toBeVisible();
   await page.getByRole("button", { name: "Close AI assistant" }).first().click();
+  await expect(assistant).not.toBeVisible();
+  await page.getByRole("button", { name: "Open AI assistant" }).click();
+  await expect(assistant.locator('a[href^="/products/"]').first()).toBeVisible();
+  await page.getByRole("button", { name: "Close AI assistant" }).first().click();
 
   await page.goto("/products/1");
   await page.getByRole("button", { name: "Add to Favorites" }).click();

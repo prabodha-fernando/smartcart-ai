@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Bot, X } from "lucide-react";
 import AIAssistant, { type AIAssistantHandle } from "@/components/ai/AIAssistant";
 import type { LimitedProduct } from "@/types/product";
@@ -51,16 +51,20 @@ function FloatingAIAssistant(
 
   return (
     <>
-      <AnimatePresence>
-        {open && (
-          <motion.aside
-            id="floating-ai-assistant"
-            initial={{ opacity: 0, y: 24, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-x-4 bottom-24 z-[60] max-h-[calc(100vh-8rem)] overflow-y-auto rounded-[1.35rem] border border-white/70 bg-white/86 shadow-[0_24px_70px_rgba(15,23,42,0.22)] backdrop-blur-2xl sm:left-auto sm:right-6 sm:w-[min(36rem,calc(100vw-3rem))] md:bottom-28"
-          >
+      <motion.aside
+        id="floating-ai-assistant"
+        initial={false}
+        animate={
+          open
+            ? { opacity: 1, y: 0, scale: 1 }
+            : { opacity: 0, y: 16, scale: 0.98 }
+        }
+        aria-hidden={!open}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        className={`fixed inset-x-4 bottom-24 z-[60] max-h-[calc(100vh-8rem)] overflow-y-auto rounded-[1.35rem] border border-white/70 bg-white/86 shadow-[0_24px_70px_rgba(15,23,42,0.22)] backdrop-blur-2xl sm:left-auto sm:right-6 sm:w-[min(36rem,calc(100vw-3rem))] md:bottom-28 ${
+          open ? "visible pointer-events-auto" : "invisible pointer-events-none"
+        }`}
+      >
             <div className="flex items-center justify-between border-b border-slate-100/80 px-3.5 py-2.5">
               <span className="label-caps text-blue-700">AI Assistant</span>
               <button
@@ -74,9 +78,7 @@ function FloatingAIAssistant(
             <div className="p-2.5 sm:p-3">
               <AIAssistant ref={assistantRef} contextProduct={contextProduct} />
             </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
+      </motion.aside>
 
       <button
         onClick={() => setOpen((current) => !current)}
