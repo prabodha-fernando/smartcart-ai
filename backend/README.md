@@ -5,6 +5,25 @@ DummyJSON auth and localStorage-only user data for **auth, cart, wishlist, and
 orders**. Products are still sourced from DummyJSON, proxied through this
 backend.
 
+## Production deployment
+
+API base URL:
+
+```text
+https://smartcart-backend-brown.vercel.app/api
+```
+
+Health check:
+
+```text
+https://smartcart-backend-brown.vercel.app/api/health
+```
+
+The bare Vercel domain has no application route. Therefore, opening
+`https://smartcart-backend-brown.vercel.app/` returns a `404` response with
+`Route not found: GET /`. This is expected; use the `/api` base path for all
+requests.
+
 > Build progress is tracked day-by-day; this README is updated as endpoints land.
 
 ## Tech stack

@@ -35,5 +35,23 @@ npm run dev
 The backend runs at `http://localhost:4000` by default. See
 [`backend/README.md`](backend/README.md) for API and environment setup.
 
+## Deployed API
+
+The production backend is available at:
+
+```text
+https://smartcart-backend-brown.vercel.app/api
+```
+
+Check the deployment and MongoDB connection at:
+
+```text
+https://smartcart-backend-brown.vercel.app/api/health
+```
+
+Opening `https://smartcart-backend-brown.vercel.app/` without `/api` returns
+`Route not found: GET /` by design because every backend route is mounted
+under `/api`.
+
 Run commands from the application directory you are working on; each app owns
 its own `package.json`, lockfile, dependencies, and environment configuration.
