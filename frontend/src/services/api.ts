@@ -394,16 +394,28 @@ export async function askAIChat(
   messages: Pick<AIChatMessage, "role" | "content">[],
   lastProducts: LimitedProduct[]
 ): Promise<AIChatResponse> {
-  const response = await privateApi.post<AIChatResponse>("/ai/chat", {
-    messages,
-    lastProducts,
-  });
+  const response = await privateApi.post<AIChatResponse>(
+    "/ai/chat",
+    { messages, lastProducts },
+    {
+      // A catalog-grounded answer can require multiple bounded provider steps.
+      timeout: 25_000,
+    }
+  );
   return response.data;
 }
 
-export async function getWhyBuy(product: Partial<Product>): Promise<string> {
+export async function getWhyBuy(
+  product: Partial<Product>,
+  variation: 0 | 1 | 2 = 0
+): Promise<string> {
   const response = await privateApi.post<{ text: string }>("/ai/why-buy", {
     product,
+    variation,
+  }, {
+    // The backend may wait briefly for NVIDIA before returning its grounded
+    // fallback. Keep the browser timeout beyond that server-side boundary.
+    timeout: 15_000,
   });
   return response.data.text;
 }
