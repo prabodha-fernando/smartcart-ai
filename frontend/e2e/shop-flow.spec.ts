@@ -15,6 +15,8 @@ test("login, cart, wishlist, checkout, and order history work end to end", async
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: "Sign In" }).click();
   await expect(page).toHaveURL(/\/$/);
+  await page.reload();
+  await expect(page).not.toHaveURL(/\/login/);
 
   await page.goto("/products/1");
   await page.getByRole("button", { name: "Add to Favorites" }).click();
@@ -34,12 +36,45 @@ test("login, cart, wishlist, checkout, and order history work end to end", async
 
   await page.goto("/cart");
   await expect(page.getByText("Essence Mascara Lash Princess")).toBeVisible();
+  await page.getByRole("button", { name: /Increase Essence Mascara Lash Princess quantity/ }).click();
+  await expect.poll(async () => {
+    const cart = await request.get(`${backend}/cart`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return (await cart.json()).data?.cart?.totalItems;
+  }).toBe(2);
+  await page.reload();
+  await expect(page.getByText("Essence Mascara Lash Princess")).toBeVisible();
+
+  await page.goto("/favorites");
+  await page.reload();
+  await expect(page.getByText("Essence Mascara Lash Princess")).toBeVisible();
+  await page.getByRole("button", { name: "Remove Essence Mascara Lash Princess from favorites" }).click();
+  await expect.poll(async () => {
+    const wishlist = await request.get(`${backend}/wishlist`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return (await wishlist.json()).data?.wishlist?.totalItems;
+  }).toBe(0);
+
+  await page.goto("/cart");
   await page.getByRole("button", { name: "Proceed to checkout" }).click();
   await expect(page).toHaveURL(/\/orders\/[a-f0-9]{24}$/);
   await expect(page.getByText("Order pending")).toBeVisible();
 
   await page.goto("/orders");
   await expect(page.getByText(/Order #[A-F0-9]{8}/)).toBeVisible();
+  await page.getByRole("button", { name: "Logout" }).click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await page.getByLabel("Email").fill(email);
+  await page.locator('input[type="password"]').fill(password);
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/orders");
+  await expect(page.getByText(/Order #[A-F0-9]{8}/)).toBeVisible();
+  await page.goto("/cart");
+  await expect(page.getByText("Your cart is empty")).toBeVisible();
   await page.goto("/favorites");
-  await expect(page.getByText("Eyeshadow Palette with Mirror").or(page.getByText("Essence Mascara Lash Princess"))).toBeVisible();
+  await expect(page.getByText(/No favorites yet/i)).toBeVisible();
 });

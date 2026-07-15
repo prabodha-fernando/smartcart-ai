@@ -79,9 +79,12 @@ npm run dev
 Create a `.env.local` (keep it out of version control):
 
 ```env
-NEXT_PUBLIC_BASE_URL=http://localhost:4000/api
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
 BACKEND_API_URL=http://localhost:4000/api
 ```
+
+`NEXT_PUBLIC_BASE_URL` remains supported for older deployments, but
+`NEXT_PUBLIC_API_URL` is the preferred browser-facing variable.
 
 ## API Endpoints
 

@@ -24,12 +24,14 @@ and remains a local fallback for guests.
 
 ## End-to-end verification checklist
 
-- [x] Register and log in through the automated Chromium browser journey.
-- [x] Add a persisted cart item through the browser.
-- [x] Add a persisted wishlist item through the browser.
+- [x] Register, log in, refresh the page, and restore the session.
+- [x] Add a cart item, update quantity, refresh, and confirm persistence.
+- [x] Add a wishlist item, refresh, remove it, and confirm persistence.
 - [x] Checkout and confirm redirect to the order detail.
-- [x] Confirm the order appears in history and favorites remain available.
+- [x] Confirm the order appears in history and wishlist removal persists.
 - [x] Confirm refresh-token rotation and replay rejection through integration tests.
+- [x] Log out, log in again, and confirm orders persist while the checked-out
+  cart and removed wishlist item remain empty.
 
 The automated backend and frontend checks complement this checklist, but the
 browser flows must be verified against the configured MongoDB deployment.

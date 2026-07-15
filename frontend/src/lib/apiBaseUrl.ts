@@ -28,6 +28,7 @@ function normalizeApiUrl(url: string | undefined) {
 export function getBackendApiBaseUrl() {
   return (
     normalizeApiUrl(process.env.BACKEND_API_URL) ??
+    normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL) ??
     normalizeApiUrl(process.env.NEXT_PUBLIC_BASE_URL) ??
     LOCAL_API_BASE_URL
   );
@@ -41,7 +42,9 @@ export function getApiBaseUrl() {
     return "/api";
   }
 
-  const configuredUrl = process.env.NEXT_PUBLIC_BASE_URL?.trim();
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_API_URL?.trim() ??
+    process.env.NEXT_PUBLIC_BASE_URL?.trim();
 
   return normalizeApiUrl(configuredUrl) ?? LOCAL_API_BASE_URL;
 }
