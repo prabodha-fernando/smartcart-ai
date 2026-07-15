@@ -77,14 +77,16 @@ describe("Orders API", () => {
       message: "Order created successfully",
       data: {
         order: {
+          subtotal: 19.98,
           total: 19.98,
-          status: "paid",
+          status: "pending",
           items: [
             {
               productId: 1,
               title: "Essence Mascara Lash Princess",
               price: 9.99,
               quantity: 2,
+              lineTotal: 19.98,
             },
           ],
         },
@@ -132,7 +134,9 @@ describe("Orders API", () => {
       .set(ownerAuthorization)
       .send({});
     expect(emptyResponse.status).toBe(400);
-    expect(emptyResponse.body.message).toBe("Cannot checkout an empty cart");
+    expect(emptyResponse.body.message).toBe(
+      "Cannot create order from an empty cart"
+    );
 
     await request(app)
       .post("/api/cart/items")
@@ -166,5 +170,41 @@ describe("Orders API", () => {
       .get("/api/orders?page=0&limit=101")
       .set(authorization);
     expect(invalidPagination.status).toBe(400);
+  });
+
+  it("requires authentication for every order endpoint", async () => {
+    const responses = await Promise.all([
+      request(app).post("/api/orders").send({}),
+      request(app).get("/api/orders"),
+      request(app).get("/api/orders/507f1f77bcf86cd799439011"),
+    ]);
+
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+    }
+  });
+
+  it("does not clear the cart when order creation fails", async () => {
+    const token = await registerAndLogin("failed-checkout@example.com");
+    const authorization = { Authorization: `Bearer ${token}` };
+
+    await request(app)
+      .post("/api/cart/items")
+      .set(authorization)
+      .send({ productId: 1, quantity: 2 });
+
+    vi.spyOn(Order, "create").mockRejectedValueOnce(
+      new Error("Simulated order persistence failure")
+    );
+
+    const checkoutResponse = await request(app)
+      .post("/api/orders")
+      .set(authorization)
+      .send({});
+    expect(checkoutResponse.status).toBe(500);
+
+    const persistedCart = await Cart.findOne({});
+    expect(persistedCart?.items).toHaveLength(1);
+    expect(persistedCart?.items[0]?.quantity).toBe(2);
   });
 });

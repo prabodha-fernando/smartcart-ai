@@ -319,13 +319,23 @@ export interface OrderItem {
   price: number;
   thumbnail: string;
   quantity: number;
+  lineTotal: number;
 }
+
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
 
 export interface Order {
   id: string;
   items: OrderItem[];
+  subtotal: number;
   total: number;
-  status: "paid" | "pending" | "cancelled";
+  status: OrderStatus;
   createdAt: string;
   updatedAt: string;
 }

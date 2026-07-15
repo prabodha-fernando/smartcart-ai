@@ -66,6 +66,12 @@ describe("Auth API", () => {
       .send({ refreshToken });
     expect(refreshResponse.status).toBe(200);
     expect(refreshResponse.body.data.accessToken).toEqual(expect.any(String));
+    expect(refreshResponse.body.data.refreshToken).toEqual(expect.any(String));
+
+    const replayResponse = await request(app)
+      .post("/api/auth/refresh")
+      .send({ refreshToken });
+    expect(replayResponse.status).toBe(401);
   });
 
   it("rejects duplicate registration, invalid credentials, and missing auth", async () => {

@@ -6,10 +6,7 @@
 // NVIDIA's NIM endpoint is OpenAI-compatible, so we drive it with the official
 // OpenAI SDK, handing it our NVIDIA key as the OpenAI API key.
 
-import OpenAI from "openai";
-
-export const NVIDIA_BASE_URL =
-  process.env.NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1";
+import type OpenAI from "openai";
 
 // mistralai/mistral-large-3-675b-instruct-2512 returns 429 (rate limited) on
 // every call on this account, so we run the reliable llama-3.1-8b instead.
@@ -32,13 +29,8 @@ export const callNvidiaAI = async (params: {
   temperature?: number;
   maxTokens?: number;
 }): Promise<NvidiaJsonResponse> => {
-  const client = new OpenAI({
-    baseURL: NVIDIA_BASE_URL,
-    apiKey: process.env.NVIDIA_NIM_API_KEY!,
-  });
-
   try {
-    const completion = await client.chat.completions.create({
+    const completion = await backendCompletion({
       model: params.model,
       messages: [
         {
@@ -82,24 +74,31 @@ export async function streamNvidiaChat(
   },
   onText: (text: string) => void
 ): Promise<boolean> {
-  const client = new OpenAI({
-    baseURL: NVIDIA_BASE_URL,
-    apiKey: process.env.NVIDIA_NIM_API_KEY!,
-  });
-
-  const stream = await client.chat.completions.create({
+  const completion = await backendCompletion({
     model: NVIDIA_MODEL,
-    stream: true,
     ...payload,
   });
+  const text = completion.choices?.[0]?.message?.content;
+  if (!text) return false;
+  onText(text);
+  return true;
+}
 
-  let wrote = false;
-  for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta?.content;
-    if (delta) {
-      onText(delta);
-      wrote = true;
-    }
-  }
-  return wrote;
+interface CompletionResponse {
+  choices?: Array<{ message?: { content?: string | null } }>;
+}
+
+async function backendCompletion(payload: Record<string, unknown>): Promise<CompletionResponse> {
+  const baseUrl = process.env.BACKEND_API_URL || "http://localhost:4000/api";
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/ai/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-ai-proxy-secret": process.env.AI_PROXY_SECRET || "",
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Backend AI proxy failed (${response.status})`);
+  return response.json() as Promise<CompletionResponse>;
 }

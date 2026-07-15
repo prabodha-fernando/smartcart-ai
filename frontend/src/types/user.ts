@@ -72,4 +72,5 @@ export interface AuthApiData {
 
 export interface RefreshTokenResponse {
   accessToken: string;
+  refreshToken: string;
 }

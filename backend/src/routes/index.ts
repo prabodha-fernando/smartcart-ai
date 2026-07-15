@@ -6,6 +6,7 @@ import productRoutes from "./product.routes.js";
 import cartRoutes from "./cart.routes.js";
 import wishlistRoutes from "./wishlist.routes.js";
 import orderRoutes from "./order.routes.js";
+import aiRoutes from "./ai.routes.js";
 
 /**
  * Root API router. Public routes: health, auth, products (catalog proxy).
@@ -33,6 +34,7 @@ router.get("/", (_req, res) => {
 router.use("/health", healthRoutes);
 router.use("/auth", authRoutes);
 router.use("/products", productRoutes);
+router.use("/ai", aiRoutes);
 
 router.use("/cart", requireAuth, cartRoutes);
 router.use("/wishlist", requireAuth, wishlistRoutes);

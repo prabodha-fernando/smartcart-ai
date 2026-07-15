@@ -25,8 +25,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import toast from "react-hot-toast";
 
-const SHIPPING_FLAT = 4.99;
-
 export default function CartPage() {
   const items = useCartStore((state) => state.items);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
@@ -41,8 +39,7 @@ export default function CartPage() {
   const router = useRouter();
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
-  const shipping = items.length > 0 ? SHIPPING_FLAT : 0;
-  const total = subtotal + shipping;
+  const total = subtotal;
   const visibleItems = items.slice(0, visibleCount);
   const showLoadMore = visibleCount < items.length;
 
@@ -253,7 +250,7 @@ export default function CartPage() {
                   <div className="flex justify-between text-slate-600">
                     <dt>Shipping</dt>
                     <dd className="font-medium text-slate-950">
-                      ${shipping.toFixed(2)}
+                      Free
                     </dd>
                   </div>
                   <div className="mt-3 flex justify-between border-t border-dashed border-slate-300 pt-5 text-base">

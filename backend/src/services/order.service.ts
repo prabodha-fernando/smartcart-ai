@@ -1,4 +1,4 @@
-import type { HydratedDocument } from "mongoose";
+import mongoose, { type ClientSession, type HydratedDocument } from "mongoose";
 import { Cart } from "../models/Cart.js";
 import { Order, type IOrder } from "../models/Order.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -12,7 +12,9 @@ export interface SerializedOrder {
     price: number;
     thumbnail: string;
     quantity: number;
+    lineTotal: number;
   }>;
+  subtotal: number;
   total: number;
   status: IOrder["status"];
   createdAt?: Date;
@@ -30,7 +32,9 @@ function serializeOrder(order: HydratedDocument<IOrder>): SerializedOrder {
       price: item.price,
       thumbnail: item.thumbnail,
       quantity: item.quantity,
+      lineTotal: item.lineTotal,
     })),
+    subtotal: object.subtotal,
     total: object.total,
     status: object.status,
     createdAt: object.createdAt,
@@ -39,10 +43,32 @@ function serializeOrder(order: HydratedDocument<IOrder>): SerializedOrder {
 }
 
 export async function checkoutCart(userId: string) {
-  const cart = await Cart.findOne({ user: userId });
+  const session = await mongoose.startSession();
+  try {
+    let result: SerializedOrder | undefined;
+    await session.withTransaction(async () => {
+      result = await persistCheckout(userId, session);
+    });
+    if (!result) throw new Error("Checkout transaction did not complete");
+    return result;
+  } catch (error) {
+    // Local standalone MongoDB does not support transactions. Preserve the
+    // required create-then-clear ordering there; production replica sets use
+    // the atomic transaction above.
+    if (isTransactionUnsupported(error)) {
+      return persistCheckout(userId);
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+}
+
+async function persistCheckout(userId: string, session?: ClientSession) {
+  const cart = await Cart.findOne({ user: userId }).session(session ?? null);
 
   if (!cart || cart.items.length === 0) {
-    throw ApiError.badRequest("Cannot checkout an empty cart");
+    throw ApiError.badRequest("Cannot create order from an empty cart");
   }
 
   const items = cart.items.map((item) => ({
@@ -51,23 +77,37 @@ export async function checkoutCart(userId: string) {
     price: item.price,
     thumbnail: item.thumbnail,
     quantity: item.quantity,
+    lineTotal: Number((item.price * item.quantity).toFixed(2)),
   }));
-  const total = Number(
-    items
-      .reduce((sum, item) => sum + item.price * item.quantity, 0)
-      .toFixed(2)
+  const subtotal = Number(
+    items.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2)
   );
-  const order = await Order.create({
+  const total = subtotal;
+  const orderData = {
     user: userId,
     items,
+    subtotal,
     total,
-    status: "paid",
-  });
+    status: "pending",
+  } as const;
+  const order = session
+    ? (await Order.create([orderData], { session }))[0]
+    : await Order.create(orderData);
+  if (!order) throw new Error("Order creation failed");
 
   cart.items.splice(0, cart.items.length);
-  await cart.save();
+  await cart.save(session ? { session } : undefined);
 
   return serializeOrder(order);
+}
+
+function isTransactionUnsupported(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: number }).code === 20
+  );
 }
 
 export async function getOrdersForUser(

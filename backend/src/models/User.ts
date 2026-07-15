@@ -5,6 +5,7 @@ export interface IUser {
   name: string;
   email: string;
   password: string;
+  tokenVersion: number;
 }
 
 export interface IUserMethods {
@@ -35,6 +36,7 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
       required: true,
       select: false,
     },
+    tokenVersion: { type: Number, default: 0, select: false },
   },
   {
     timestamps: true,

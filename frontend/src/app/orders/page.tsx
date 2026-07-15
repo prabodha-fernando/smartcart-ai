@@ -93,9 +93,9 @@ export default function OrdersPage() {
             <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-5">
               <CheckCircle2 className="text-violet-700" size={22} />
               <p className="mt-4 text-3xl font-bold text-slate-950">
-                {orders.filter((order) => order.status === "paid").length}
+                {orders.filter((order) => order.status === "delivered").length}
               </p>
-              <p className="mt-1 text-sm text-slate-500">Completed payments</p>
+              <p className="mt-1 text-sm text-slate-500">Delivered orders</p>
             </div>
           </div>
 
