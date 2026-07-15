@@ -290,8 +290,8 @@ describe("AI API", () => {
   });
 
   it.each([
-    ["Show me one top rated phone", 2],
-    ["Show me one best-selling phone", 3],
+    ["Show me the top rated phone", 2],
+    ["Show me the best-selling phone", 3],
   ])("applies requested ranking only for: %s", async (content, expectedId) => {
     vi.spyOn(dummyjson, "get").mockResolvedValue({
       data: {
@@ -311,6 +311,52 @@ describe("AI API", () => {
     expect(response.status).toBe(200);
     expect(response.body.products).toHaveLength(1);
     expect(response.body.products[0].id).toBe(expectedId);
+  });
+
+  it("respects an explicit result count for a ranked category request", async () => {
+    vi.spyOn(dummyjson, "get").mockResolvedValue({
+      data: {
+        products: [
+          { id: 1, title: "Phone A", category: "smartphones", price: 300, rating: 4.2, thumbnail: "https://example.com/1.png" },
+          { id: 2, title: "Phone B", category: "smartphones", price: 400, rating: 4.9, thumbnail: "https://example.com/2.png" },
+          { id: 3, title: "Phone C", category: "smartphones", price: 350, rating: 4.7, thumbnail: "https://example.com/3.png" },
+          { id: 4, title: "Phone D", category: "smartphones", price: 250, rating: 4.5, thumbnail: "https://example.com/4.png" },
+        ],
+      },
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: "Show me top 3 rated phones" }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products.map((product: { id: number }) => product.id)).toEqual([2, 3, 4]);
+  });
+
+  it("strictly applies an explicitly requested color inside the selected category", async () => {
+    const catalog = vi.spyOn(dummyjson, "get").mockResolvedValue({
+      data: {
+        products: [
+          { id: 1, title: "Red Evening Dress", category: "womens-dresses", description: "Elegant red dress", price: 80, rating: 4.6, thumbnail: "https://example.com/red.png" },
+          { id: 2, title: "Black Evening Dress", category: "womens-dresses", description: "Elegant black dress", price: 70, rating: 4.9, thumbnail: "https://example.com/black.png" },
+        ],
+      },
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: "Show me a red dress" }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products).toEqual([
+      expect.objectContaining({ id: 1, title: "Red Evening Dress" }),
+    ]);
+    expect(catalog).toHaveBeenCalledWith(
+      "/products/category/womens-dresses",
+      { params: { limit: 100 } }
+    );
   });
 
   it("validates requests and produces a grounded fallback blurb", async () => {

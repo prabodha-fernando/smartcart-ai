@@ -199,12 +199,12 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
       `${product.brand ?? ""} ${product.title}`.toLowerCase().includes(brand)
     );
   }
-  if (plan.color) {
-    const color = plan.color.toLowerCase();
-    const matchingColor = products.filter((product) =>
+  const requestedColor = plan.color ?? extractRequestedColor(lower);
+  if (requestedColor) {
+    const color = requestedColor.toLowerCase();
+    products = products.filter((product) =>
       `${product.title} ${product.description ?? ""}`.toLowerCase().includes(color)
     );
-    if (matchingColor.length > 0) products = matchingColor;
   }
   if (plan.inStock === true || /\b(in stock|available now|available products?)\b/.test(lower)) {
     products = products.filter((product) => (product.stock ?? 0) > 0);
@@ -225,7 +225,7 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
   const requestedSort: SearchSort = /cheapest|lowest price|affordable/.test(lower) ? "price_asc"
     : /most expensive|premium|highest price/.test(lower) ? "price_desc"
     : /newest|latest|recent/.test(lower) ? "newest"
-    : /best rated|highest rated|top rated/.test(lower) ? "rating"
+    : /best rated|highest rated|top(?:\s+[1-4])?\s+rated/.test(lower) ? "rating"
     : /best[- ]?selling|most sold|popular|most purchased/.test(lower) ? "best_selling"
     : /highest discount|biggest discount|most discounted|best discount/.test(lower) ? "discount"
     : plan.sort;
@@ -244,10 +244,15 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     relevanceScore(b, lower) - relevanceScore(a, lower) ||
     b.rating - a.rating
   );
-  const rating = lower.match(/(?:at least|minimum|min|above|over)?\s*(\d(?:\.\d)?)\s*(?:star|stars|rated)/);
+  const rankedCountRequest = /\btop\s+[1-4]\s+rated\b/.test(lower);
+  const rating = rankedCountRequest
+    ? null
+    : lower.match(/(?:at least|minimum|min|above|over)?\s*(\d(?:\.\d)?)\s*(?:star|stars|rated)/);
   if (rating) products = products.filter((product) => product.rating >= Number(rating[1]));
   if (!rating && plan.minRating !== null) products = products.filter((product) => product.rating >= plan.minRating!);
-  const limit = /\b(one|single|1)\b/.test(lower) ? 1 : plan.limit;
+  const explicitLimit = extractRequestedLimit(lower);
+  const defaultsToSingleResult = requestedSort === "rating" || requestedSort === "best_selling";
+  const limit = explicitLimit ?? (defaultsToSingleResult ? 1 : plan.limit);
   const shortlist = products.slice(0, 20);
   // Explicit ranking is authoritative; AI must not override "top rated",
   // "best selling", price, or newest requests after deterministic sorting.
@@ -255,6 +260,32 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     ? shortlist.slice(0, limit)
     : await selectProductsWithAI(shortlist, messages, limit);
   return selected.map(({ id, title, price, rating, thumbnail }) => ({ id, title, price, rating, thumbnail }));
+}
+
+function extractRequestedColor(request: string) {
+  const colors = [
+    "black", "white", "red", "blue", "green", "yellow", "pink", "purple",
+    "orange", "brown", "grey", "gray", "silver", "gold", "beige", "navy",
+  ];
+  return colors.find((color) => new RegExp(`\\b${color}\\b`).test(request)) ?? null;
+}
+
+function extractRequestedLimit(request: string) {
+  const numberWords: Record<string, number> = {
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+  };
+  const patterns = [
+    /\btop\s+([1-4]|one|two|three|four)\b/,
+    /\b(?:show|give|find|recommend|suggest)\s+(?:me\s+)?(?:the\s+)?([1-4]|one|two|three|four)\b/,
+    /\b(one|single)\s+(?:best|top|highest|cheapest|lowest|product|item)\b/,
+  ];
+  const match = patterns.map((pattern) => request.match(pattern)).find(Boolean);
+  if (!match?.[1]) return null;
+  if (match[1] === "single") return 1;
+  return numberWords[match[1]] ?? Number(match[1]);
 }
 
 async function resolveRequestCategories(
