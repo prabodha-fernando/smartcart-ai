@@ -19,6 +19,9 @@ beforeEach(async () => {
   await AiRateLimit.deleteMany({});
   await User.deleteMany({});
   vi.restoreAllMocks();
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(
+    new Error("AI provider disabled in deterministic API tests")
+  );
 });
 
 afterAll(async () => {
@@ -146,6 +149,41 @@ describe("AI API", () => {
     expect(response.body.products).toEqual([
       expect.objectContaining({ id: 1, title: "Samsung Value Phone", price: 500 }),
     ]);
+  });
+
+  it("lets AI choose only from categories currently available in the store", async () => {
+    vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
+      if (url === "/products/categories") {
+        return { data: [{ slug: "sports-accessories" }, { slug: "groceries" }] };
+      }
+      return {
+        data: {
+          products: [{ id: 20, title: "Cricket Bat", category: "sports-accessories", price: 80, rating: 4.7, thumbnail: "https://example.com/bat.png" }],
+        },
+      };
+    });
+    vi.mocked(globalThis.fetch).mockImplementation(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as { messages?: Array<{ content?: string }> };
+      const prompt = body.messages?.[0]?.content ?? "";
+      const content = prompt.includes("Understand exactly")
+        ? JSON.stringify({ intent: "product_search", requiresProducts: true, reply: "", search: { categories: ["sports-accessories"], limit: 4 } })
+        : "I found a cricket product from the current store catalog.";
+      return { ok: true, json: async () => ({ choices: [{ message: { content } }] }) } as Response;
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: "I need equipment for cricket" }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products).toEqual([
+      expect.objectContaining({ id: 20, title: "Cricket Bat" }),
+    ]);
+    expect(dummyjson.get).toHaveBeenCalledWith(
+      "/products/category/sports-accessories",
+      { params: { limit: 100 } }
+    );
   });
 
   it.each([

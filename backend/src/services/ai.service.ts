@@ -13,6 +13,8 @@ interface SearchPlan {
   query: string | null;
   categories: string[];
   brand: string | null;
+  color: string | null;
+  purpose: string | null;
   minPrice: number | null;
   maxPrice: number | null;
   minRating: number | null;
@@ -28,7 +30,7 @@ interface ShoppingDecision {
 }
 
 const emptySearchPlan = (): SearchPlan => ({
-  query: null, categories: [], brand: null, minPrice: null, maxPrice: null,
+  query: null, categories: [], brand: null, color: null, purpose: null, minPrice: null, maxPrice: null,
   minRating: null, sort: null, limit: 4,
 });
 
@@ -110,7 +112,7 @@ async function getShoppingDecision(input: AiChatInput): Promise<ShoppingDecision
   const transcript = input.messages.slice(-8).map((message) => `${message.role}: ${message.content}`).join("\n");
   const raw = await completeJson(
     `Understand exactly what the shopper expects. Return only JSON: ` +
-    `{"intent":"product_search|product_question|app_question|out_of_scope","requiresProducts":true,"reply":"short direct answer","search":{"query":null,"categories":[],"brand":null,"minPrice":null,"maxPrice":null,"minRating":null,"sort":null,"limit":4}}. ` +
+    `{"intent":"product_search|product_question|app_question|out_of_scope","requiresProducts":true,"reply":"short direct answer","search":{"query":null,"categories":[],"brand":null,"color":null,"purpose":null,"minPrice":null,"maxPrice":null,"minRating":null,"sort":null,"limit":4}}. ` +
     `Use only explicit constraints. sort is price_asc, price_desc, rating, best_selling, newest, or null. ` +
     `Use rating only when the shopper asks for top/highest/best rated. Use best_selling only for best-selling or most-popular requests. ` +
     `limit is 1-4. Keep reply concise and do not add information the customer did not request.\n${transcript}`,
@@ -141,8 +143,8 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
   const lower = text.toLowerCase();
   const needCategories = needCategoryRules.find((rule) => rule.test.test(lower))?.categories;
   const directCategory = Object.entries(categoryTerms).find(([term]) => new RegExp(`\\b${term}s?\\b`).test(lower))?.[1];
-  const categories = needCategories ?? (directCategory ? [directCategory] : plan.categories);
-  const query = plan.query || extractQuery(lower);
+  const categories = await resolveRequestCategories(lower, needCategories, directCategory, plan);
+  const query = [plan.query, plan.purpose].filter(Boolean).join(" ") || extractQuery(lower);
   let products: CatalogProduct[];
   if (categories.length > 0) {
     const responses = await Promise.all(
@@ -166,6 +168,13 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     products = products.filter((product) =>
       `${product.brand ?? ""} ${product.title}`.toLowerCase().includes(brand)
     );
+  }
+  if (plan.color) {
+    const color = plan.color.toLowerCase();
+    const matchingColor = products.filter((product) =>
+      `${product.title} ${product.description ?? ""}`.toLowerCase().includes(color)
+    );
+    if (matchingColor.length > 0) products = matchingColor;
   }
   const under = lower.match(/(?:under|below|up to|less than)\s*\$?(\d+)/);
   const over = lower.match(/(?:over|above|at least|more than)\s*\$?(\d+)/);
@@ -200,6 +209,49 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     ? shortlist.slice(0, limit)
     : await selectProductsWithAI(shortlist, messages, limit);
   return selected.map(({ id, title, price, rating, thumbnail }) => ({ id, title, price, rating, thumbnail }));
+}
+
+async function resolveRequestCategories(
+  request: string,
+  needCategories: string[] | undefined,
+  directCategory: string | undefined,
+  plan: SearchPlan
+) {
+  const available = await fetchAvailableCategories();
+  const allowed = new Set(available);
+  const deterministic = needCategories ?? (directCategory ? [directCategory] : []);
+  const validated = [...deterministic, ...plan.categories]
+    .filter((category, index, list) => allowed.has(category) && list.indexOf(category) === index)
+    .slice(0, 3);
+  if (validated.length > 0) return validated;
+
+  const raw = await completeJson(
+    `Choose up to 3 categories that best match the shopper's request. ` +
+    `Use only exact slugs from AVAILABLE_CATEGORIES. Return an empty array if none fit. ` +
+    `Return only {"categories":["slug"]}.\nREQUEST\n${request}\nAVAILABLE_CATEGORIES\n${available.join(", ")}`,
+    140
+  );
+  return Array.isArray(raw?.categories)
+    ? raw.categories.filter((category): category is string => typeof category === "string" && allowed.has(category)).slice(0, 3)
+    : [];
+}
+
+async function fetchAvailableCategories() {
+  try {
+    const { data } = await dummyjson.get("/products/categories");
+    const categories = (Array.isArray(data) ? data : [])
+      .map((category: unknown) =>
+        typeof category === "string"
+          ? category
+          : typeof category === "object" && category !== null && "slug" in category
+            ? (category as { slug?: unknown }).slug
+            : undefined
+      )
+      .filter((category: unknown): category is string => typeof category === "string");
+    return categories.length > 0 ? categories : [...allowedCategories];
+  } catch {
+    return [...allowedCategories];
+  }
 }
 
 async function selectProductsWithAI(products: CatalogProduct[], messages: AiChatInput["messages"], limit: number) {
@@ -268,6 +320,7 @@ async function completeText(prompt: string, maxTokens: number) {
       method: "POST",
       headers: { Authorization: `Bearer ${env.NVIDIA_NIM_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "meta/llama-3.1-8b-instruct", messages: [{ role: "user", content: prompt }], temperature: 0.5, max_tokens: maxTokens }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return null;
     const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
@@ -290,6 +343,7 @@ async function completeJson(prompt: string, maxTokens: number): Promise<Record<s
         max_tokens: maxTokens,
         response_format: { type: "json_object" },
       }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return null;
     const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
@@ -330,6 +384,8 @@ function normalizeSearchPlan(value: unknown): SearchPlan {
     query: typeof raw.query === "string" && raw.query.trim() ? raw.query.trim().slice(0, 80) : null,
     categories,
     brand: typeof raw.brand === "string" && raw.brand.trim() ? raw.brand.trim().slice(0, 80) : null,
+    color: typeof raw.color === "string" && raw.color.trim() ? raw.color.trim().slice(0, 40) : null,
+    purpose: typeof raw.purpose === "string" && raw.purpose.trim() ? raw.purpose.trim().slice(0, 80) : null,
     minPrice: numberOrNull(raw.minPrice),
     maxPrice: numberOrNull(raw.maxPrice),
     minRating: numberOrNull(raw.minRating),
