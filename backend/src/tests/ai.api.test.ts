@@ -236,6 +236,39 @@ describe("AI API", () => {
     ]);
   });
 
+  it("rejects an AI reply that names a product outside the selected catalog results", async () => {
+    vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
+      if (url === "/products/categories") {
+        return { data: storeCategories.map((slug) => ({ slug })) };
+      }
+      return {
+        data: {
+          products: [{ id: 22, title: "Samsung Galaxy S8", brand: "Samsung", category: "smartphones", price: 499.99, rating: 4.4, thumbnail: "https://example.com/s8.png" }],
+        },
+      };
+    });
+    vi.mocked(globalThis.fetch).mockImplementation(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as { response_format?: unknown };
+      const content = body.response_format
+        ? JSON.stringify({ intent: "product_search", requiresProducts: true, search: { categories: ["smartphones"] } })
+        : "The Samsung Galaxy A13 is the perfect choice for you.";
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ message: { content } }] }),
+      } as Response;
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: "Show me a Samsung phone" }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products[0].title).toBe("Samsung Galaxy S8");
+    expect(response.body.reply).toContain("Samsung Galaxy S8");
+    expect(response.body.reply).not.toContain("Galaxy A13");
+  });
+
   it.each(storeCategories)("filters the complete store category: %s", async (category) => {
     const catalog = vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
       if (url === "/products/categories") return { data: storeCategories.map((slug) => ({ slug })) };

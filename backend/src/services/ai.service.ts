@@ -391,8 +391,28 @@ function lexicalRelevance(product: CatalogProduct, terms: string[]) {
 
 async function groundedReply(question: string, products: Array<{ title: string; price: number; rating: number }>) {
   const facts = products.map((p) => `${p.title}: $${p.price}, ${p.rating}/5`).join("\n");
-  return (await completeText(`Answer the shopper warmly in 1-2 sentences using only these products.\nQuestion: ${question}\n${facts}`, 160, 5_000))
-    || fallbackGroundedReply(products);
+  const generated = await completeText(
+    `Answer the shopper warmly in 1-2 sentences using only these products. Name at least one listed product exactly.\nQuestion: ${question}\n${facts}`,
+    160,
+    5_000
+  );
+  return generated && referencesSelectedProduct(generated, products)
+    ? generated
+    : fallbackGroundedReply(products);
+}
+
+function referencesSelectedProduct(
+  reply: string,
+  products: Array<{ title: string }>
+) {
+  const normalizedReply = normalizeComparableText(reply);
+  return products.some((product) =>
+    normalizedReply.includes(normalizeComparableText(product.title))
+  );
+}
+
+function normalizeComparableText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function fallbackGroundedReply(products: Array<{ title: string; price: number; rating: number }>) {
