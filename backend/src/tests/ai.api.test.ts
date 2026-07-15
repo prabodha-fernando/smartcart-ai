@@ -39,6 +39,21 @@ describe("AI API", () => {
     expect(catalog).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["Thank you", "gratitude"],
+    ["Tell me today's weather", "out_of_scope"],
+  ])("handles non-search intent %s without catalog access", async (content, intent) => {
+    const catalog = vi.spyOn(dummyjson, "get");
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content }],
+      lastProducts: [],
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.intent).toBe(intent);
+    expect(response.body.products).toEqual([]);
+    expect(catalog).not.toHaveBeenCalled();
+  });
+
   it("searches real catalog data and applies price filters", async () => {
     vi.spyOn(dummyjson, "get").mockResolvedValue({
       data: {
@@ -84,6 +99,30 @@ describe("AI API", () => {
       `/products/category/${expectedCategory}`,
       { params: { limit: 100 } }
     );
+  });
+
+  it("carries the previous product request into a budget follow-up", async () => {
+    const catalog = vi.spyOn(dummyjson, "get").mockResolvedValue({
+      data: {
+        products: [
+          { id: 1, title: "Affordable Laptop", category: "laptops", price: 700, rating: 4.2, thumbnail: "https://example.com/1.png" },
+          { id: 2, title: "Expensive Laptop", category: "laptops", price: 1400, rating: 4.8, thumbnail: "https://example.com/2.png" },
+        ],
+      },
+    });
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [
+        { role: "user", content: "Show me laptops" },
+        { role: "assistant", content: "Here are some laptops." },
+        { role: "user", content: "under $1000" },
+      ],
+      lastProducts: [],
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.products).toEqual([
+      expect.objectContaining({ id: 1, title: "Affordable Laptop" }),
+    ]);
+    expect(catalog).toHaveBeenCalledWith("/products/category/laptops", { params: { limit: 100 } });
   });
 
   it("validates requests and produces a grounded fallback blurb", async () => {
