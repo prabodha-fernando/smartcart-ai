@@ -154,9 +154,10 @@ export async function resolveWhyBuy(input: WhyBuyInput) {
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`)
     .join("\n");
-  const prompt = `Using only these facts, explain in 2-3 short, honest sentences why this product may be a good buy. No markdown or invented claims.\n${facts}`;
+  const emphasis = ["overall value", "practical ownership details", "the product's strongest verified features"][input.variation];
+  const prompt = `Using only these facts, write a fresh explanation in 2-3 short, honest sentences about why this product may be a good buy. Emphasize ${emphasis}. Use different wording from a generic product summary. No markdown or invented claims.\n${facts}`;
   const generated = await completeText(prompt, 180, 8_000);
-  return generated || fallbackWhyBuy(product);
+  return generated || fallbackWhyBuy(product, input.variation);
 }
 
 async function findProducts(text: string, messages: AiChatInput["messages"], plan: SearchPlan) {
@@ -475,7 +476,7 @@ function extractQuery(text: string) {
   return text.replace(/\b(show|find|recommend|suggest|give|me|products?|items?|under|below|over|above|cheapest|best|rated|please)\b/g, " ").replace(/\$?\d+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "products";
 }
 function isShownProductQuestion(text: string) { return /\b(worth|which|better|good|tell me about|this|that|these)\b/i.test(text); }
-function fallbackWhyBuy(product: WhyBuyInput["product"]) {
+function fallbackWhyBuy(product: WhyBuyInput["product"], variation = 0) {
   const name = product.title?.trim() || "This product";
   const category = product.category?.replace(/-/g, " ");
   const identity = product.brand && category
@@ -507,7 +508,9 @@ function fallbackWhyBuy(product: WhyBuyInput["product"]) {
   if (description) sentences.push(trimSentence(description, 180));
   if (benefits.length > 0) sentences.push(`Practical buying details include ${joinFacts(benefits)}.`);
 
-  return sentences.slice(0, 3).join(" ");
+  const selected = sentences.slice(0, 3);
+  const offset = selected.length > 1 ? variation % selected.length : 0;
+  return [...selected.slice(offset), ...selected.slice(0, offset)].join(" ");
 }
 
 function joinFacts(facts: Array<string | null>) {

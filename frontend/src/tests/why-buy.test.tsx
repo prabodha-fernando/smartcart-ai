@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import WhyBuyThis from "@/components/ai/WhyBuyThis";
 import { getWhyBuy } from "@/services/api";
@@ -16,6 +16,27 @@ describe("WhyBuyThis", () => {
     await waitFor(() => {
       expect(screen.getByText("A grounded backend recommendation.")).toBeTruthy();
     });
-    expect(getWhyBuy).toHaveBeenCalledWith(expect.objectContaining({ title: "Test", price: 10 }));
+    expect(getWhyBuy).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Test", price: 10 }),
+      0
+    );
+  });
+
+  it("requests a fresh grounded variation when regenerate is clicked", async () => {
+    vi.mocked(getWhyBuy)
+      .mockResolvedValueOnce("The first product explanation.")
+      .mockResolvedValueOnce("A different factual emphasis.");
+    render(<WhyBuyThis product={{ id: 1, title: "Test", price: 10, rating: 4.5 } as Product} />);
+
+    await screen.findByText("The first product explanation.");
+    fireEvent.click(screen.getByRole("button", { name: /regenerate/i }));
+
+    await screen.findByText("A different factual emphasis.");
+    expect(screen.queryByText("The first product explanation.")).toBeNull();
+    expect(getWhyBuy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ title: "Test", price: 10 }),
+      1
+    );
   });
 });

@@ -31,6 +31,7 @@ export const whyBuySchema = z.object({
     shippingInformation: z.string().max(300).optional(),
     availabilityStatus: z.string().max(100).optional(),
   }).strict(),
+  variation: z.number().int().min(0).max(2).default(0),
 }).strict();
 
 export type AiChatInput = z.infer<typeof aiChatSchema>;

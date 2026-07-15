@@ -13,10 +13,11 @@ export default function WhyBuyThis({ product }: { product: Product }) {
 
   // Guards against a stale stream overwriting a newer one (e.g. on regenerate).
   const requestId = useRef(0);
+  const variation = useRef<0 | 1 | 2>(0);
 
   // Runs the request. State is only updated after the first `await`, so it's
   // safe to call from an effect without triggering cascading renders.
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (requestedVariation: 0 | 1 | 2) => {
     const id = ++requestId.current;
 
     try {
@@ -33,7 +34,7 @@ export default function WhyBuyThis({ product }: { product: Product }) {
         warrantyInformation: product.warrantyInformation,
         shippingInformation: product.shippingInformation,
         availabilityStatus: product.availabilityStatus,
-      });
+      }, requestedVariation);
 
       if (id !== requestId.current) return; // superseded while awaiting
 
@@ -49,16 +50,16 @@ export default function WhyBuyThis({ product }: { product: Product }) {
   useEffect(() => {
     // generate() only calls setState after `await fetch`, never synchronously,
     // so this doesn't cause the cascading renders the rule guards against.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    generate();
+    generate(variation.current);
   }, [generate]);
 
   // Event handler — safe to reset state synchronously here.
   const handleRegenerate = () => {
+    variation.current = ((variation.current + 1) % 3) as 0 | 1 | 2;
     setLoading(true);
     setFailed(false);
     setText("");
-    generate();
+    generate(variation.current);
   };
 
   return (
