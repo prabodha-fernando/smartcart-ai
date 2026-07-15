@@ -30,6 +30,14 @@ afterAll(async () => {
 });
 
 describe("AI API", () => {
+  const storeCategories = [
+    "beauty", "fragrances", "furniture", "groceries", "home-decoration",
+    "kitchen-accessories", "laptops", "mens-shirts", "mens-shoes",
+    "mens-watches", "mobile-accessories", "motorcycle", "skin-care",
+    "smartphones", "sports-accessories", "sunglasses", "tablets", "tops",
+    "vehicle", "womens-bags", "womens-dresses", "womens-jewellery",
+    "womens-shoes", "womens-watches",
+  ];
   it("handles greetings without calling the catalog", async () => {
     const catalog = vi.spyOn(dummyjson, "get");
     const response = await request(app).post("/api/ai/chat").send({
@@ -184,6 +192,26 @@ describe("AI API", () => {
       "/products/category/sports-accessories",
       { params: { limit: 100 } }
     );
+  });
+
+  it.each(storeCategories)("filters the complete store category: %s", async (category) => {
+    const catalog = vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
+      if (url === "/products/categories") return { data: storeCategories.map((slug) => ({ slug })) };
+      return {
+        data: {
+          products: [{ id: 30, title: `${category} product`, category, price: 50, rating: 4.2, thumbnail: "https://example.com/category.png" }],
+        },
+      };
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: `Show me ${category}` }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products).toHaveLength(1);
+    expect(catalog).toHaveBeenCalledWith(`/products/category/${category}`, { params: { limit: 100 } });
   });
 
   it.each([

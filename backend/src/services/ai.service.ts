@@ -6,9 +6,10 @@ interface CatalogProduct {
   id: number; title: string; price: number; rating: number; thumbnail: string;
   category?: string; description?: string; brand?: string;
   reviews?: unknown[];
+  tags?: string[]; discountPercentage?: number; stock?: number;
 }
 
-type SearchSort = "price_asc" | "price_desc" | "rating" | "best_selling" | "newest" | null;
+type SearchSort = "price_asc" | "price_desc" | "rating" | "best_selling" | "discount" | "newest" | null;
 interface SearchPlan {
   query: string | null;
   categories: string[];
@@ -18,6 +19,8 @@ interface SearchPlan {
   minPrice: number | null;
   maxPrice: number | null;
   minRating: number | null;
+  minDiscount: number | null;
+  inStock: boolean | null;
   sort: SearchSort;
   limit: number;
 }
@@ -32,14 +35,30 @@ interface ShoppingDecision {
 const emptySearchPlan = (): SearchPlan => ({
   query: null, categories: [], brand: null, color: null, purpose: null, minPrice: null, maxPrice: null,
   minRating: null, sort: null, limit: 4,
+  minDiscount: null, inStock: null,
 });
 
 const categoryTerms: Record<string, string> = {
-  phone: "smartphones", smartphone: "smartphones", laptop: "laptops",
-  perfume: "fragrances", makeup: "beauty", mascara: "beauty",
-  furniture: "furniture", grocery: "groceries", food: "groceries",
-  dress: "womens-dresses", shoes: "mens-shoes", watch: "mens-watches",
-  bag: "womens-bags", tablet: "tablets", skincare: "skin-care",
+  beauty: "beauty", makeup: "beauty", mascara: "beauty", lipstick: "beauty", eyeshadow: "beauty",
+  perfume: "fragrances", fragrance: "fragrances", cologne: "fragrances",
+  furniture: "furniture", sofa: "furniture", chair: "furniture", desk: "furniture", bed: "furniture",
+  grocery: "groceries", groceries: "groceries", food: "groceries", snack: "groceries",
+  decoration: "home-decoration", decor: "home-decoration", vase: "home-decoration", lamp: "home-decoration",
+  kitchen: "kitchen-accessories", cookware: "kitchen-accessories", utensil: "kitchen-accessories",
+  laptop: "laptops", notebook: "laptops", macbook: "laptops",
+  shirt: "mens-shirts", tshirt: "mens-shirts", sneaker: "mens-shoes", "mens shoe": "mens-shoes",
+  "mens watch": "mens-watches", wristwatch: "mens-watches",
+  charger: "mobile-accessories", headphone: "mobile-accessories", earbud: "mobile-accessories", powerbank: "mobile-accessories",
+  motorcycle: "motorcycle", motorbike: "motorcycle", scooter: "motorcycle",
+  skincare: "skin-care", moisturizer: "skin-care", serum: "skin-care", sunscreen: "skin-care",
+  phone: "smartphones", smartphone: "smartphones", iphone: "smartphones", android: "smartphones",
+  sport: "sports-accessories", fitness: "sports-accessories", cricket: "sports-accessories", football: "sports-accessories",
+  sunglasses: "sunglasses", shades: "sunglasses", tablet: "tablets", ipad: "tablets",
+  top: "tops", blouse: "tops", car: "vehicle", vehicle: "vehicle",
+  bag: "womens-bags", handbag: "womens-bags", purse: "womens-bags",
+  dress: "womens-dresses", gown: "womens-dresses", jewellery: "womens-jewellery", jewelry: "womens-jewellery",
+  necklace: "womens-jewellery", earring: "womens-jewellery", "womens shoe": "womens-shoes",
+  heel: "womens-shoes", "womens watch": "womens-watches",
 };
 
 const needCategoryRules: Array<{ test: RegExp; categories: string[] }> = [
@@ -112,8 +131,8 @@ async function getShoppingDecision(input: AiChatInput): Promise<ShoppingDecision
   const transcript = input.messages.slice(-8).map((message) => `${message.role}: ${message.content}`).join("\n");
   const raw = await completeJson(
     `Understand exactly what the shopper expects. Return only JSON: ` +
-    `{"intent":"product_search|product_question|app_question|out_of_scope","requiresProducts":true,"reply":"short direct answer","search":{"query":null,"categories":[],"brand":null,"color":null,"purpose":null,"minPrice":null,"maxPrice":null,"minRating":null,"sort":null,"limit":4}}. ` +
-    `Use only explicit constraints. sort is price_asc, price_desc, rating, best_selling, newest, or null. ` +
+    `{"intent":"product_search|product_question|app_question|out_of_scope","requiresProducts":true,"reply":"short direct answer","search":{"query":null,"categories":[],"brand":null,"color":null,"purpose":null,"minPrice":null,"maxPrice":null,"minRating":null,"minDiscount":null,"inStock":null,"sort":null,"limit":4}}. ` +
+    `Use only explicit constraints. sort is price_asc, price_desc, rating, best_selling, discount, newest, or null. ` +
     `Use rating only when the shopper asks for top/highest/best rated. Use best_selling only for best-selling or most-popular requests. ` +
     `limit is 1-4. Keep reply concise and do not add information the customer did not request.\n${transcript}`,
     320
@@ -160,6 +179,9 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     products = (data.products ?? []) as CatalogProduct[];
   }
   products = applyNeedRelevance(products, lower);
+  const relevanceTerms = extractRelevanceTerms(lower);
+  const lexicallyRelevant = products.filter((product) => lexicalRelevance(product, relevanceTerms) > 0);
+  if (lexicallyRelevant.length > 0) products = lexicallyRelevant;
   const explicitBrand = plan.brand ?? products.find((product) =>
     product.brand && lower.includes(product.brand.toLowerCase())
   )?.brand ?? null;
@@ -176,6 +198,14 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     );
     if (matchingColor.length > 0) products = matchingColor;
   }
+  if (plan.inStock === true || /\b(in stock|available now|available products?)\b/.test(lower)) {
+    products = products.filter((product) => (product.stock ?? 0) > 0);
+  }
+  const discountMatch = lower.match(/(?:at least|minimum|over|above)\s*(\d+)%\s*(?:off|discount)/);
+  const minDiscount = discountMatch ? Number(discountMatch[1]) : plan.minDiscount;
+  if (minDiscount !== null) {
+    products = products.filter((product) => (product.discountPercentage ?? 0) >= minDiscount);
+  }
   const under = lower.match(/(?:under|below|up to|less than)\s*\$?(\d+)/);
   const over = lower.match(/(?:over|above|at least|more than)\s*\$?(\d+)/);
   const between = lower.match(/between\s*\$?(\d+)\s*(?:and|to|-)\s*\$?(\d+)/);
@@ -189,6 +219,7 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
     : /newest|latest|recent/.test(lower) ? "newest"
     : /best rated|highest rated|top rated/.test(lower) ? "rating"
     : /best[- ]?selling|most sold|popular|most purchased/.test(lower) ? "best_selling"
+    : /highest discount|biggest discount|most discounted|best discount/.test(lower) ? "discount"
     : plan.sort;
   if (requestedSort === "price_asc") products.sort((a, b) => a.price - b.price);
   else if (requestedSort === "price_desc") products.sort((a, b) => b.price - a.price);
@@ -197,7 +228,14 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
   else if (requestedSort === "best_selling") {
     products.sort((a, b) => (b.reviews?.length ?? 0) - (a.reviews?.length ?? 0) || b.rating - a.rating);
   }
-  else products.sort((a, b) => relevanceScore(b, lower) - relevanceScore(a, lower) || b.rating - a.rating);
+  else if (requestedSort === "discount") {
+    products.sort((a, b) => (b.discountPercentage ?? 0) - (a.discountPercentage ?? 0));
+  }
+  else products.sort((a, b) =>
+    lexicalRelevance(b, relevanceTerms) - lexicalRelevance(a, relevanceTerms) ||
+    relevanceScore(b, lower) - relevanceScore(a, lower) ||
+    b.rating - a.rating
+  );
   const rating = lower.match(/(?:at least|minimum|min|above|over)?\s*(\d(?:\.\d)?)\s*(?:star|stars|rated)/);
   if (rating) products = products.filter((product) => product.rating >= Number(rating[1]));
   if (!rating && plan.minRating !== null) products = products.filter((product) => product.rating >= plan.minRating!);
@@ -220,7 +258,17 @@ async function resolveRequestCategories(
   const available = await fetchAvailableCategories();
   const allowed = new Set(available);
   const deterministic = needCategories ?? (directCategory ? [directCategory] : []);
-  const validated = [...deterministic, ...plan.categories]
+  const normalizedRequest = request.replace(/[^a-z0-9]+/g, "-");
+  const wantsWomen = /\b(women|woman|womens|ladies|female|her)\b/.test(request);
+  const wantsMen = /\b(men|man|mens|male|his)\b/.test(request);
+  const categoryMention = available.find((category) => {
+    const base = category.replace(/^(mens|womens)-/, "");
+    if (!normalizedRequest.includes(category) && !normalizedRequest.includes(base)) return false;
+    if (wantsWomen) return category.startsWith("womens-") || !category.startsWith("mens-");
+    if (wantsMen) return category.startsWith("mens-") || !category.startsWith("womens-");
+    return true;
+  });
+  const validated = [...deterministic, ...(categoryMention ? [categoryMention] : []), ...plan.categories]
     .filter((category, index, list) => allowed.has(category) && list.indexOf(category) === index)
     .slice(0, 3);
   if (validated.length > 0) return validated;
@@ -307,6 +355,32 @@ function relevanceScore(product: CatalogProduct, request: string) {
   return score;
 }
 
+const relevanceStopWords = new Set([
+  "a", "an", "and", "any", "best", "buy", "for", "from", "give", "help",
+  "i", "in", "item", "items", "looking", "me", "need", "of", "one", "only",
+  "please", "product", "products", "recommend", "show", "some", "suggest",
+  "the", "to", "want", "with", "under", "over", "above", "below", "between",
+  "cheapest", "expensive", "rated", "rating", "stars", "latest", "newest",
+  "popular", "selling", "gift", "thoughtful", "something", "anything",
+]);
+
+function extractRelevanceTerms(request: string) {
+  return Array.from(new Set(
+    request.split(/[^a-z0-9]+/)
+      .filter((term) => term.length >= 3 && !relevanceStopWords.has(term) && !/^\d+$/.test(term))
+      .map((term) => term.endsWith("s") && term.length > 4 ? term.slice(0, -1) : term)
+  ));
+}
+
+function lexicalRelevance(product: CatalogProduct, terms: string[]) {
+  if (terms.length === 0) return 0;
+  const title = product.title.toLowerCase();
+  const details = `${product.description ?? ""} ${(product.tags ?? []).join(" ")} ${product.brand ?? ""} ${product.category ?? ""}`.toLowerCase();
+  return terms.reduce((score, term) =>
+    score + (title.includes(term) ? 5 : 0) + (details.includes(term) ? 2 : 0), 0
+  );
+}
+
 async function groundedReply(question: string, products: Array<{ title: string; price: number; rating: number }>) {
   const facts = products.map((p) => `${p.title}: $${p.price}, ${p.rating}/5`).join("\n");
   return (await completeText(`Answer the shopper warmly in 1-2 sentences using only these products.\nQuestion: ${question}\n${facts}`, 160))
@@ -376,7 +450,7 @@ function normalizeSearchPlan(value: unknown): SearchPlan {
   const categories = Array.isArray(raw.categories)
     ? raw.categories.filter((category): category is string => typeof category === "string" && allowedCategories.has(category)).slice(0, 3)
     : [];
-  const sort = typeof raw.sort === "string" && ["price_asc", "price_desc", "rating", "best_selling", "newest"].includes(raw.sort)
+  const sort = typeof raw.sort === "string" && ["price_asc", "price_desc", "rating", "best_selling", "discount", "newest"].includes(raw.sort)
     ? raw.sort as SearchSort
     : null;
   const numberOrNull = (candidate: unknown) => typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;
@@ -389,6 +463,8 @@ function normalizeSearchPlan(value: unknown): SearchPlan {
     minPrice: numberOrNull(raw.minPrice),
     maxPrice: numberOrNull(raw.maxPrice),
     minRating: numberOrNull(raw.minRating),
+    minDiscount: numberOrNull(raw.minDiscount),
+    inStock: typeof raw.inStock === "boolean" ? raw.inStock : null,
     sort,
     limit: typeof raw.limit === "number" ? Math.min(4, Math.max(1, Math.floor(raw.limit))) : 4,
   };
