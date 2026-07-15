@@ -27,7 +27,6 @@ const envSchema = z.object({
   DUMMYJSON_BASE_URL: z.string().url().default("https://dummyjson.com"),
   NVIDIA_NIM_BASE_URL: z.string().url().default("https://integrate.api.nvidia.com/v1"),
   NVIDIA_NIM_API_KEY: z.string().default(""),
-  AI_PROXY_SECRET: z.string().default(""),
   AI_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
 });
 

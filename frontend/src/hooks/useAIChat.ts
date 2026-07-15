@@ -9,6 +9,7 @@ import type {
 } from "@/types/product";
 import { useCartStore, type CartItem } from "@/store/cartStore";
 import { useFavoritesStore } from "@/store/favoritesStore";
+import { askAIChat } from "@/services/api";
 
 export function useAIChat(contextProducts?: LimitedProduct[]) {
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
@@ -93,20 +94,10 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
           return;
         }
 
-        const response = await fetch("/api/ai/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: history.map(({ role, content }) => ({ role, content })),
-            lastProducts: lastProductsRef.current,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Request failed");
-        }
-
-        const data = (await response.json()) as AIChatResponse;
+        const data: AIChatResponse = await askAIChat(
+          history.map(({ role, content }) => ({ role, content })),
+          lastProductsRef.current
+        );
 
         if (Array.isArray(data.products) && data.products.length > 0) {
           lastProductsRef.current = data.products;

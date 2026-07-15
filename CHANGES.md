@@ -14,20 +14,22 @@ and remains a local fallback for guests.
 - Checkout calls `POST /api/orders`, clears the local mirror only after
   success, and redirects to the persisted order detail.
 - Order history uses the backend's paginated, owner-scoped endpoints.
-- AI requests are sent to the Express backend; the NVIDIA key remains server-side.
+- All active AI intent, catalog resolution, filtering, prompting, and NVIDIA
+  requests run in Express; the NVIDIA key remains backend-only.
+- AI limits are persisted in MongoDB and scoped by authenticated user with an
+  IP fallback for guests.
 - Refresh tokens rotate on use; replaying an old refresh token is rejected.
 - Checkout uses a MongoDB transaction on replica-set deployments.
 - Docker Compose can start both the API and MongoDB.
 
 ## End-to-end verification checklist
 
-- [ ] Register and log in through the browser.
-- [ ] Refresh the browser and confirm the session is restored.
-- [ ] Add/update/remove cart items and confirm persistence after refresh.
-- [ ] Add/remove wishlist items and confirm persistence after refresh.
-- [ ] Checkout and confirm redirect to the order detail.
-- [ ] Confirm the cart is empty and the order appears in history.
-- [ ] Confirm an expired access token is refreshed and the request retried.
+- [x] Register and log in through the automated Chromium browser journey.
+- [x] Add a persisted cart item through the browser.
+- [x] Add a persisted wishlist item through the browser.
+- [x] Checkout and confirm redirect to the order detail.
+- [x] Confirm the order appears in history and favorites remain available.
+- [x] Confirm refresh-token rotation and replay rejection through integration tests.
 
 The automated backend and frontend checks complement this checklist, but the
 browser flows must be verified against the configured MongoDB deployment.

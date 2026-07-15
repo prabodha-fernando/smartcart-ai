@@ -5,6 +5,25 @@ DummyJSON auth and localStorage-only user data for **auth, cart, wishlist, and
 orders**. Products are still sourced from DummyJSON, proxied through this
 backend.
 
+## Production deployment
+
+API base URL:
+
+```text
+https://smartcart-backend-brown.vercel.app/api
+```
+
+Health check:
+
+```text
+https://smartcart-backend-brown.vercel.app/api/health
+```
+
+The bare Vercel domain has no application route. Therefore, opening
+`https://smartcart-backend-brown.vercel.app/` returns a `404` response with
+`Route not found: GET /`. This is expected; use the `/api` base path for all
+requests.
+
 > Build progress is tracked day-by-day; this README is updated as endpoints land.
 
 ## Tech stack
@@ -45,7 +64,6 @@ cp .env.example .env
 | `REFRESH_TOKEN_EXPIRES` | Refresh token TTL | `7d` |
 | `DUMMYJSON_BASE_URL` | Upstream product source | `https://dummyjson.com` |
 | `NVIDIA_NIM_API_KEY` | Server-only NVIDIA credential | — |
-| `AI_PROXY_SECRET` | Shared secret used only between Next.js and Express | — |
 | `AI_RATE_LIMIT_PER_MINUTE` | AI requests allowed per client window | `20` |
 
 ### 3. Start MongoDB
@@ -224,11 +242,12 @@ Product display fields (title, price, thumbnail, rating) are **snapshotted** fro
 |--------|------|------|-------|
 | GET | `/health` | — | Liveness probe + DB connection state |
 
-### AI (internal proxy)
+### AI
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| POST | `/ai/completions` | Internal proxy secret | Rate-limited NVIDIA completion proxy used by the Next.js server only |
+| POST | `/ai/chat` | Optional JWT | Validated catalog-grounded shopping assistant; rate-limited by user or IP |
+| POST | `/ai/why-buy` | Optional JWT | Grounded product explanation; rate-limited by user or IP |
 
-Do not call this endpoint from browser code or expose `AI_PROXY_SECRET` with a
-`NEXT_PUBLIC_` prefix.
+The NVIDIA credential remains backend-only. Rate counters are stored in
+MongoDB so limits remain consistent across serverless instances.

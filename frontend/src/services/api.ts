@@ -12,10 +12,12 @@ import {
 } from "@/types/user";
 import {
   LimitedProductsResponse,
+  LimitedProduct,
   Product,
   ProductCategory,
   ProductsResponse,
 } from "@/types/product";
+import type { AIChatMessage, AIChatResponse } from "@/types/product";
 
 function normalizeAuthUser(user: AuthApiUser): User {
   const name = user.name?.trim() || user.email.split("@")[0];
@@ -384,4 +386,24 @@ export async function getOrderById(id: string): Promise<Order> {
   const response = await privateApi.get<OrderApiResponse>(`/orders/${id}`);
 
   return response.data.data.order;
+}
+
+// ─── AI (implemented and rate-limited by the Express backend) ────────────
+
+export async function askAIChat(
+  messages: Pick<AIChatMessage, "role" | "content">[],
+  lastProducts: LimitedProduct[]
+): Promise<AIChatResponse> {
+  const response = await privateApi.post<AIChatResponse>("/ai/chat", {
+    messages,
+    lastProducts,
+  });
+  return response.data;
+}
+
+export async function getWhyBuy(product: Partial<Product>): Promise<string> {
+  const response = await privateApi.post<{ text: string }>("/ai/why-buy", {
+    product,
+  });
+  return response.data.text;
 }
