@@ -10,9 +10,9 @@ import { dummyjson } from "../services/product.service.js";
 const app = createApp();
 let mongoServer: MongoMemoryServer;
 
-async function registerAndLogin() {
+async function registerAndLogin(email = "wishlist@example.com") {
   const credentials = {
-    email: "wishlist@example.com",
+    email,
     password: "secure-password-123",
   };
   const registerResponse = await request(app).post("/api/auth/register").send({
@@ -145,5 +145,35 @@ describe("Wishlist API", () => {
 
     const emptyWishlist = await Wishlist.findOne({});
     expect(emptyWishlist?.items).toHaveLength(0);
+  });
+
+  it("isolates wishlist data between users", async () => {
+    const ownerToken = await registerAndLogin("wishlist-owner@example.com");
+    const otherToken = await registerAndLogin("wishlist-other@example.com");
+
+    const addResponse = await request(app)
+      .post("/api/wishlist/items")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ productId: 1 });
+    expect(addResponse.status).toBe(201);
+
+    const otherWishlist = await request(app)
+      .get("/api/wishlist")
+      .set("Authorization", `Bearer ${otherToken}`);
+    expect(otherWishlist.status).toBe(200);
+    expect(otherWishlist.body.data.wishlist).toMatchObject({
+      items: [],
+      totalItems: 0,
+    });
+
+    const otherDelete = await request(app)
+      .delete("/api/wishlist/items/1")
+      .set("Authorization", `Bearer ${otherToken}`);
+    expect(otherDelete.status).toBe(404);
+
+    const ownerWishlist = await request(app)
+      .get("/api/wishlist")
+      .set("Authorization", `Bearer ${ownerToken}`);
+    expect(ownerWishlist.body.data.wishlist.totalItems).toBe(1);
   });
 });
