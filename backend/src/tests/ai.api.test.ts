@@ -125,6 +125,29 @@ describe("AI API", () => {
     expect(catalog).toHaveBeenCalledWith("/products/category/laptops", { params: { limit: 100 } });
   });
 
+  it("returns only the customer's requested brand, budget, rating, sort, and count", async () => {
+    vi.spyOn(dummyjson, "get").mockResolvedValue({
+      data: {
+        products: [
+          { id: 1, title: "Samsung Value Phone", brand: "Samsung", category: "smartphones", price: 500, rating: 4.4, thumbnail: "https://example.com/1.png" },
+          { id: 2, title: "Samsung Premium Phone", brand: "Samsung", category: "smartphones", price: 750, rating: 4.8, thumbnail: "https://example.com/2.png" },
+          { id: 3, title: "Apple Phone", brand: "Apple", category: "smartphones", price: 450, rating: 4.9, thumbnail: "https://example.com/3.png" },
+          { id: 4, title: "Samsung Low Rated", brand: "Samsung", category: "smartphones", price: 300, rating: 3.2, thumbnail: "https://example.com/4.png" },
+        ],
+      },
+    });
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: "Show me one cheapest Samsung phone under $800 with at least 4 stars" }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products).toEqual([
+      expect.objectContaining({ id: 1, title: "Samsung Value Phone", price: 500 }),
+    ]);
+  });
+
   it("validates requests and produces a grounded fallback blurb", async () => {
     const invalid = await request(app).post("/api/ai/chat").send({ messages: [] });
     expect(invalid.status).toBe(400);
