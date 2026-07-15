@@ -15,6 +15,33 @@ const categoryTerms: Record<string, string> = {
   bag: "womens-bags", tablet: "tablets", skincare: "skin-care",
 };
 
+const needCategoryRules: Array<{ test: RegExp; categories: string[] }> = [
+  {
+    test: /\b(gamer|gaming|video game|streamer|streaming setup)\b/i,
+    categories: ["laptops", "mobile-accessories", "tablets"],
+  },
+  {
+    test: /\b(wedding|bridal|bridesmaid|elegant.*(?:wear|outfit|dress))\b/i,
+    categories: ["womens-dresses"],
+  },
+  {
+    test: /\b(university|college|student|studying|campus)\b/i,
+    categories: ["laptops", "tablets", "womens-bags"],
+  },
+  {
+    test: /\b(noise[- ]?cancell?ing|headphones?|headsets?|earbuds?|earphones?)\b/i,
+    categories: ["mobile-accessories"],
+  },
+  {
+    test: /\b(home office|workspace|desk setup|work from home)\b/i,
+    categories: ["furniture", "laptops", "mobile-accessories"],
+  },
+  {
+    test: /\b(dinner|meal|cook|cooking|ingredient|meat|snack|food)\b/i,
+    categories: ["groceries"],
+  },
+];
+
 export async function resolveAiChat(input: AiChatInput) {
   const latest = [...input.messages].reverse().find((message) => message.role === "user")!.content;
   if (/^(hi|hello|hey|good (morning|afternoon|evening))\b/i.test(latest)) {
@@ -45,22 +72,69 @@ export async function resolveWhyBuy(input: WhyBuyInput) {
 
 async function findProducts(text: string) {
   const lower = text.toLowerCase();
-  const category = Object.entries(categoryTerms).find(([term]) => new RegExp(`\\b${term}s?\\b`).test(lower))?.[1];
+  const needCategories = needCategoryRules.find((rule) => rule.test.test(lower))?.categories;
+  const directCategory = Object.entries(categoryTerms).find(([term]) => new RegExp(`\\b${term}s?\\b`).test(lower))?.[1];
+  const categories = needCategories ?? (directCategory ? [directCategory] : []);
   const query = extractQuery(lower);
-  const path = category
-    ? `/products/category/${category}`
-    : `/products/search`;
-  const { data } = await dummyjson.get(path, { params: category ? { limit: 100 } : { q: query, limit: 100 } });
-  let products = (data.products ?? []) as CatalogProduct[];
+  let products: CatalogProduct[];
+  if (categories.length > 0) {
+    const responses = await Promise.all(
+      categories.map((category) =>
+        dummyjson.get(`/products/category/${category}`, { params: { limit: 100 } })
+      )
+    );
+    products = responses.flatMap(({ data }) => (data.products ?? []) as CatalogProduct[]);
+  } else {
+    const { data } = await dummyjson.get("/products/search", {
+      params: { q: query, limit: 100 },
+    });
+    products = (data.products ?? []) as CatalogProduct[];
+  }
+  products = applyNeedRelevance(products, lower);
   const under = lower.match(/(?:under|below|up to|less than)\s*\$?(\d+)/);
   const over = lower.match(/(?:over|above|at least|more than)\s*\$?(\d+)/);
   if (under) products = products.filter((p) => p.price <= Number(under[1]));
   if (over) products = products.filter((p) => p.price >= Number(over[1]));
   if (/cheapest|lowest price|affordable/.test(lower)) products.sort((a, b) => a.price - b.price);
   else if (/most expensive|premium|highest price/.test(lower)) products.sort((a, b) => b.price - a.price);
-  else products.sort((a, b) => b.rating - a.rating);
+  else products.sort((a, b) => relevanceScore(b, lower) - relevanceScore(a, lower) || b.rating - a.rating);
   const limit = /\b(one|single|1)\b/.test(lower) ? 1 : 4;
   return products.slice(0, limit).map(({ id, title, price, rating, thumbnail }) => ({ id, title, price, rating, thumbnail }));
+}
+
+function applyNeedRelevance(products: CatalogProduct[], request: string) {
+  const rules: Array<{ test: RegExp; product: RegExp }> = [
+    {
+      test: /\b(noise[- ]?cancell?ing|headphones?|headsets?|earbuds?|earphones?)\b/,
+      product: /\b(headphones?|headsets?|earbuds?|earphones?|airpods?|beats)\b/i,
+    },
+    {
+      test: /\b(wedding|bridal|bridesmaid|elegant.*(?:wear|outfit|dress))\b/,
+      product: /\b(dress|gown|suit|skirt)\b/i,
+    },
+  ];
+  const rule = rules.find(({ test }) => test.test(request));
+  if (!rule) return products;
+  const relevant = products.filter((product) =>
+    rule.product.test(`${product.title} ${product.description ?? ""}`)
+  );
+  return relevant.length > 0 ? relevant : products;
+}
+
+function relevanceScore(product: CatalogProduct, request: string) {
+  let score = product.rating;
+  const category = product.category ?? "";
+  if (/\b(gamer|gaming|streamer)\b/.test(request)) {
+    if (category === "laptops") score += 6;
+    else if (category === "tablets") score += 3;
+    else if (category === "mobile-accessories") score += 2;
+  }
+  if (/\b(university|college|student)\b/.test(request)) {
+    if (category === "laptops") score += 6;
+    else if (category === "tablets") score += 4;
+  }
+  if (/\b(wedding|bridal|elegant)\b/.test(request) && category === "womens-dresses") score += 8;
+  return score;
 }
 
 async function groundedReply(question: string, products: Array<{ title: string; price: number; rating: number }>) {

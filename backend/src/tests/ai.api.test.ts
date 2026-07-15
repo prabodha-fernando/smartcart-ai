@@ -60,6 +60,32 @@ describe("AI API", () => {
     ]);
   });
 
+  it.each([
+    ["A thoughtful gift for a gamer", "laptops"],
+    ["Something elegant to wear to a wedding", "womens-dresses"],
+    ["Best noise-cancelling headphones under $200", "mobile-accessories"],
+  ])("routes broad need %s to relevant catalog categories", async (prompt, expectedCategory) => {
+    const catalog = vi.spyOn(dummyjson, "get").mockImplementation(async (url) => ({
+      data: {
+        products: String(url).endsWith(`/${expectedCategory}`)
+          ? [{ id: 10, title: "Relevant Product", category: expectedCategory, price: 100, rating: 4.8, thumbnail: "https://example.com/relevant.png" }]
+          : [],
+      },
+    }));
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: prompt }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.products).toHaveLength(1);
+    expect(catalog).toHaveBeenCalledWith(
+      `/products/category/${expectedCategory}`,
+      { params: { limit: 100 } }
+    );
+  });
+
   it("validates requests and produces a grounded fallback blurb", async () => {
     const invalid = await request(app).post("/api/ai/chat").send({ messages: [] });
     expect(invalid.status).toBe(400);
