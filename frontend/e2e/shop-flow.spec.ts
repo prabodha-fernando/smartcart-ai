@@ -18,6 +18,17 @@ test("login, cart, wishlist, checkout, and order history work end to end", async
   await page.reload();
   await expect(page).not.toHaveURL(/\/login/);
 
+  await page.getByRole("button", { name: "Open AI assistant" }).click();
+  const assistant = page.locator("#floating-ai-assistant");
+  await assistant
+    .getByRole("button", { name: "Top-rated smartphone under $500" })
+    .click();
+  await expect(assistant.locator('a[href^="/products/"]').first()).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(assistant.getByText(/rating|rated|matching|match/i).first()).toBeVisible();
+  await page.getByRole("button", { name: "Close AI assistant" }).first().click();
+
   await page.goto("/products/1");
   await page.getByRole("button", { name: "Add to Favorites" }).click();
   await expect(page.getByRole("button", { name: "Added to Favorites" })).toBeVisible();

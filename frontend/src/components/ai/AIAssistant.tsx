@@ -29,7 +29,7 @@ import type { AIChatMessage, LimitedProduct } from "@/types/product";
 import toast from "react-hot-toast";
 
 const SUGGESTIONS = [
-  "Best noise-canceling headphones under $200",
+  "Top-rated smartphone under $500",
   "A thoughtful gift for a gamer",
   "Something elegant to wear to a wedding",
   "Help me set up a cozy home office",

@@ -394,10 +394,14 @@ export async function askAIChat(
   messages: Pick<AIChatMessage, "role" | "content">[],
   lastProducts: LimitedProduct[]
 ): Promise<AIChatResponse> {
-  const response = await privateApi.post<AIChatResponse>("/ai/chat", {
-    messages,
-    lastProducts,
-  });
+  const response = await privateApi.post<AIChatResponse>(
+    "/ai/chat",
+    { messages, lastProducts },
+    {
+      // A catalog-grounded answer can require multiple bounded provider steps.
+      timeout: 25_000,
+    }
+  );
   return response.data;
 }
 

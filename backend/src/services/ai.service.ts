@@ -140,9 +140,15 @@ async function getShoppingDecision(input: AiChatInput): Promise<ShoppingDecision
   const intent = raw && typeof raw.intent === "string" && ["product_search", "product_question", "app_question", "out_of_scope"].includes(raw.intent)
     ? raw.intent as ShoppingDecision["intent"]
     : "product_search";
+  const hasExplicitSearchSignal =
+    /\b(show|find|recommend|suggest|looking for|need|want|buy|cheapest|affordable|premium|best[- ]?selling|top rated|highest rated|under|below|over|above|between)\b/.test(lower) ||
+    Object.keys(categoryTerms).some((term) => new RegExp(`\\b${term}s?\\b`).test(lower));
+  const resolvedIntent = hasExplicitSearchSignal ? "product_search" : intent;
   return {
-    intent,
-    requiresProducts: raw?.requiresProducts !== false && intent === "product_search",
+    intent: resolvedIntent,
+    requiresProducts:
+      resolvedIntent === "product_search" &&
+      (hasExplicitSearchSignal || raw?.requiresProducts !== false),
     reply: typeof raw?.reply === "string" && raw.reply.trim() ? raw.reply.trim() : "Let me find the best matches in our catalog.",
     search: normalizeSearchPlan(raw?.search),
   };
@@ -385,8 +391,24 @@ function lexicalRelevance(product: CatalogProduct, terms: string[]) {
 
 async function groundedReply(question: string, products: Array<{ title: string; price: number; rating: number }>) {
   const facts = products.map((p) => `${p.title}: $${p.price}, ${p.rating}/5`).join("\n");
-  return (await completeText(`Answer the shopper warmly in 1-2 sentences using only these products.\nQuestion: ${question}\n${facts}`, 160))
-    || `I found ${products.length === 1 ? products[0]!.title : "some strong matches"} based on your request.`;
+  return (await completeText(`Answer the shopper warmly in 1-2 sentences using only these products.\nQuestion: ${question}\n${facts}`, 160, 5_000))
+    || fallbackGroundedReply(products);
+}
+
+function fallbackGroundedReply(products: Array<{ title: string; price: number; rating: number }>) {
+  if (products.length === 0) {
+    return "I couldn't find a product matching those exact requirements in the current catalog.";
+  }
+
+  if (products.length === 1) {
+    const product = products[0]!;
+    return `${product.title} is the strongest catalog match at $${product.price.toFixed(2)}, with a ${product.rating.toFixed(1)}/5 rating.`;
+  }
+
+  const names = products.map((product) => product.title).join(", ");
+  const prices = products.map((product) => product.price);
+  const highestRating = Math.max(...products.map((product) => product.rating));
+  return `I found ${products.length} matching options: ${names}. They range from $${Math.min(...prices).toFixed(2)} to $${Math.max(...prices).toFixed(2)}, with ratings up to ${highestRating.toFixed(1)}/5.`;
 }
 
 async function completeText(prompt: string, maxTokens: number, timeoutMs = 10_000) {
@@ -406,7 +428,11 @@ async function completeText(prompt: string, maxTokens: number, timeoutMs = 10_00
   }
 }
 
-async function completeJson(prompt: string, maxTokens: number): Promise<Record<string, unknown> | null> {
+async function completeJson(
+  prompt: string,
+  maxTokens: number,
+  timeoutMs = 5_000
+): Promise<Record<string, unknown> | null> {
   if (!env.NVIDIA_NIM_API_KEY) return null;
   try {
     const response = await fetch(`${env.NVIDIA_NIM_BASE_URL}/chat/completions`, {
@@ -419,7 +445,7 @@ async function completeJson(prompt: string, maxTokens: number): Promise<Record<s
         max_tokens: maxTokens,
         response_format: { type: "json_object" },
       }),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return null;
     const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };

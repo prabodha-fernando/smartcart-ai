@@ -84,6 +84,8 @@ describe("AI API", () => {
     expect(response.body.products).toEqual([
       expect.objectContaining({ id: 1, title: "Budget Phone" }),
     ]);
+    expect(response.body.reply).toContain("Budget Phone");
+    expect(response.body.reply).toContain("$300.00");
   });
 
   it.each([
@@ -106,6 +108,7 @@ describe("AI API", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.products).toHaveLength(1);
+    expect(response.body.reply).toContain("Relevant Product");
     expect(catalog).toHaveBeenCalledWith(
       `/products/category/${expectedCategory}`,
       { params: { limit: 100 } }
@@ -192,6 +195,45 @@ describe("AI API", () => {
       "/products/category/sports-accessories",
       { params: { limit: 100 } }
     );
+  });
+
+  it("does not let AI misclassify an explicit catalog search", async () => {
+    vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
+      if (url === "/products/categories") {
+        return { data: storeCategories.map((slug) => ({ slug })) };
+      }
+      return {
+        data: {
+          products: [{ id: 21, title: "Reliable Phone", category: "smartphones", price: 300, rating: 4.6, thumbnail: "https://example.com/phone.png" }],
+        },
+      };
+    });
+    vi.mocked(globalThis.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              intent: "app_question",
+              requiresProducts: false,
+              reply: "Incorrect classification",
+              search: { categories: [] },
+            }),
+          },
+        }],
+      }),
+    } as Response);
+
+    const response = await request(app).post("/api/ai/chat").send({
+      messages: [{ role: "user", content: "Show me a phone under $500" }],
+      lastProducts: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.intent).toBe("product_search");
+    expect(response.body.products).toEqual([
+      expect.objectContaining({ id: 21, title: "Reliable Phone" }),
+    ]);
   });
 
   it.each(storeCategories)("filters the complete store category: %s", async (category) => {

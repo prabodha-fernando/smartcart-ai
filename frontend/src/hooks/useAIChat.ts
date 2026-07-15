@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import axios from "axios";
 import type {
   AIChatMessage,
   AIChatResponse,
@@ -29,14 +30,10 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
   const lastProductsRef = useRef<LimitedProduct[]>(contextProducts ?? []);
 
   useEffect(() => {
-    if (
-      contextProducts &&
-      contextProducts.length > 0 &&
-      lastProductsRef.current.length === 0
-    ) {
+    if (contextProducts && contextProducts.length > 0 && messages.length === 0) {
       lastProductsRef.current = contextProducts;
     }
-  }, [contextProducts]);
+  }, [contextProducts, messages.length]);
 
   const patchLast = useCallback(
     (updater: (message: AIChatMessage) => AIChatMessage) => {
@@ -108,15 +105,15 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
           content: data.reply,
           products: data.isNewSearch ? data.products : undefined,
         }));
-      } catch {
-        setError("Something went wrong. Please try again.");
+      } catch (requestError) {
+        const message = getChatErrorMessage(requestError);
+        setError(message);
         patchLast((m) =>
           m.content
             ? m
             : {
                 ...m,
-                content:
-                  "Sorry, I couldn't reach the assistant. Please try again.",
+                content: message,
               }
         );
       } finally {
@@ -142,11 +139,24 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
 
   const reset = useCallback(() => {
     setMessages([]);
-    lastProductsRef.current = [];
+    lastProductsRef.current = contextProducts ?? [];
     setError(null);
-  }, []);
+  }, [contextProducts]);
 
   return { messages, isStreaming, error, send, reset };
+}
+
+function getChatErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    const backendMessage = error.response?.data?.message;
+    if (typeof backendMessage === "string" && backendMessage.trim()) {
+      return backendMessage;
+    }
+    if (error.code === "ECONNABORTED") {
+      return "The assistant took too long to respond. Please try again.";
+    }
+  }
+  return "Sorry, I couldn't reach the assistant. Please try again.";
 }
 
 interface ChatCrudContext {
