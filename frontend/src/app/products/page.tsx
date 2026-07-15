@@ -62,8 +62,10 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
     isFetchingNextPage,
   } = useInfiniteLimitedProducts(8);
   const { data: categories } = useCategories();
-  const { data: categoryProducts } = useProductsByCategory(selectedCategory);
-  const { data: searchResults } = useSearchProducts(debouncedSearch);
+  const categoryQuery = useProductsByCategory(selectedCategory);
+  const searchQuery = useSearchProducts(debouncedSearch);
+  const categoryProducts = categoryQuery.data;
+  const searchResults = searchQuery.data;
 
   const loadedProducts =
     limitedProducts?.pages.flatMap((page) => page.products) ?? [];
@@ -78,6 +80,16 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
   const sortedProducts = sortProducts(products || [], sortBy);
   const showLoadMore =
     !debouncedSearch && !selectedCategory && hasNextPage;
+  const activeLoading = debouncedSearch
+    ? searchQuery.isLoading
+    : selectedCategory
+      ? categoryQuery.isLoading
+      : isLoading;
+  const activeError = debouncedSearch
+    ? searchQuery.isError
+    : selectedCategory
+      ? categoryQuery.isError
+      : isError;
 
   return (
     <ProtectedRoute>
@@ -184,7 +196,7 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
             <div className="max-w-xl rounded-[20px] bg-slate-50 px-5 py-3 lg:hidden">
               <input
                 type="text"
-                placeholder="Search products..."
+                placeholder="Search products, brands, categories..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full bg-transparent font-mono outline-none"
@@ -192,7 +204,7 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
             </div>
           </div>
 
-          {isLoading && (
+          {activeLoading && (
             <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {Array.from({ length: 8 }).map((_, index) => (
                 <ProductSkeleton key={index} />
@@ -200,16 +212,16 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
             </div>
           )}
 
-          {isError && <ErrorMessage message="Failed to load products." />}
+          {activeError && <ErrorMessage message="Failed to search the product catalog." />}
 
-          {!isLoading && !isError && sortedProducts.length === 0 && (
+          {!activeLoading && !activeError && sortedProducts.length === 0 && (
             <EmptyState
               title="No products found"
               description="Try changing your search keyword or category filter."
             />
           )}
 
-          {!isLoading && !isError && sortedProducts.length > 0 && (
+          {!activeLoading && !activeError && sortedProducts.length > 0 && (
             <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {sortedProducts.map((product, index) => (
                 <ProductCard
@@ -221,7 +233,7 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
             </div>
           )}
 
-          {!isLoading && !isError && showLoadMore && (
+          {!activeLoading && !activeError && showLoadMore && (
             <div className="mt-24 flex items-center justify-center">
               <motion.button
                 disabled={isFetchingNextPage}

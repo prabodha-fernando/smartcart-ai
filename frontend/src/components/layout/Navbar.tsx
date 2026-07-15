@@ -63,12 +63,7 @@ export default function Navbar() {
     setOpen(false);
   };
 
-  const searchPlaceholder =
-    pathname === "/favorites"
-      ? "Search saved items..."
-      : pathname.startsWith("/products")
-      ? "Search products, tech, or AI insights..."
-      : "Search products...";
+  const searchPlaceholder = "Search products, brands, categories...";
 
   const badge = cartCount > 99 ? "99+" : cartCount;
   const favoritesBadge = favoritesCount > 99 ? "99+" : favoritesCount;
@@ -124,8 +119,8 @@ export default function Navbar() {
 
         {/* Right: search + actions */}
         <div className="flex items-center justify-end gap-1">
-          <form onSubmit={handleSearch} className="hidden xl:flex">
-            <label className="flex w-60 items-center gap-2.5 rounded-full border border-white/70 bg-white/70 px-4 py-2.5 text-slate-500 shadow-sm transition focus-within:border-blue-200 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-700/15">
+          <form onSubmit={handleSearch} className="hidden lg:flex">
+            <label className="flex w-48 items-center gap-2.5 rounded-full border border-white/70 bg-white/70 px-4 py-2.5 text-slate-500 shadow-sm transition focus-within:border-blue-200 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-700/15 xl:w-60">
               <Search size={18} />
               <input
                 value={search}
@@ -217,7 +212,7 @@ export default function Navbar() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden border-t border-slate-100 bg-white md:hidden"
+            className="overflow-hidden border-t border-slate-100 bg-white lg:hidden"
           >
             <div className="flex flex-col gap-1 p-4">
               <form onSubmit={handleSearch} className="pb-2">
@@ -226,7 +221,7 @@ export default function Navbar() {
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search products..."
+                    placeholder={searchPlaceholder}
                     className="min-w-0 flex-1 bg-transparent text-sm outline-none"
                     aria-label="Search products"
                   />
