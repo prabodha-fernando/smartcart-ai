@@ -242,12 +242,27 @@ describe("AI API", () => {
     const invalid = await request(app).post("/api/ai/chat").send({ messages: [] });
     expect(invalid.status).toBe(400);
 
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("NVIDIA unavailable"));
     const whyBuy = await request(app).post("/api/ai/why-buy").send({
-      product: { title: "Test Product", price: 25, rating: 4.5 },
+      product: {
+        title: "Test Product",
+        brand: "Test Brand",
+        category: "laptops",
+        description: "A lightweight computer for everyday work.",
+        price: 25,
+        rating: 4.5,
+        discountPercentage: 10,
+        shippingInformation: "Ships in 2 days",
+        warrantyInformation: "1 year warranty",
+        availabilityStatus: "In Stock",
+      },
     });
     expect(whyBuy.status).toBe(200);
     expect(whyBuy.body.text).toContain("Test Product");
     expect(whyBuy.body.text).toContain("4.5/5");
+    expect(whyBuy.body.text).toContain("A lightweight computer for everyday work.");
+    expect(whyBuy.body.text).toContain("10% off");
+    expect(whyBuy.body.text).toContain("Ships in 2 days");
   });
 
   it("enforces the distributed limit per authenticated user", async () => {

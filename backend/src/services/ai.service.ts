@@ -155,7 +155,8 @@ export async function resolveWhyBuy(input: WhyBuyInput) {
     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`)
     .join("\n");
   const prompt = `Using only these facts, explain in 2-3 short, honest sentences why this product may be a good buy. No markdown or invented claims.\n${facts}`;
-  return (await completeText(prompt, 180)) || fallbackWhyBuy(product);
+  const generated = await completeText(prompt, 180, 8_000);
+  return generated || fallbackWhyBuy(product);
 }
 
 async function findProducts(text: string, messages: AiChatInput["messages"], plan: SearchPlan) {
@@ -387,14 +388,14 @@ async function groundedReply(question: string, products: Array<{ title: string; 
     || `I found ${products.length === 1 ? products[0]!.title : "some strong matches"} based on your request.`;
 }
 
-async function completeText(prompt: string, maxTokens: number) {
+async function completeText(prompt: string, maxTokens: number, timeoutMs = 10_000) {
   if (!env.NVIDIA_NIM_API_KEY) return null;
   try {
     const response = await fetch(`${env.NVIDIA_NIM_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${env.NVIDIA_NIM_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "meta/llama-3.1-8b-instruct", messages: [{ role: "user", content: prompt }], temperature: 0.5, max_tokens: maxTokens }),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return null;
     const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
@@ -474,4 +475,55 @@ function extractQuery(text: string) {
   return text.replace(/\b(show|find|recommend|suggest|give|me|products?|items?|under|below|over|above|cheapest|best|rated|please)\b/g, " ").replace(/\$?\d+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "products";
 }
 function isShownProductQuestion(text: string) { return /\b(worth|which|better|good|tell me about|this|that|these)\b/i.test(text); }
-function fallbackWhyBuy(product: WhyBuyInput["product"]) { return `${product.title ?? "This product"} is worth considering${typeof product.rating === "number" ? ` with a ${product.rating.toFixed(1)}/5 rating` : ""}${typeof product.price === "number" ? ` at $${product.price.toFixed(2)}` : ""}.`; }
+function fallbackWhyBuy(product: WhyBuyInput["product"]) {
+  const name = product.title?.trim() || "This product";
+  const category = product.category?.replace(/-/g, " ");
+  const identity = product.brand && category
+    ? `is a ${category} option from ${product.brand}`
+    : product.brand
+      ? `is an option from ${product.brand}`
+      : category
+        ? `is a ${category} option`
+        : "is worth considering";
+  const openingFacts = [
+    identity,
+    typeof product.rating === "number" ? `rated ${product.rating.toFixed(1)}/5` : null,
+    typeof product.price === "number" ? `priced at $${product.price.toFixed(2)}` : null,
+  ].filter(Boolean);
+
+  const benefits: string[] = [];
+  if (typeof product.discountPercentage === "number" && product.discountPercentage > 0) {
+    benefits.push(`${formatNumber(product.discountPercentage)}% off`);
+  }
+  if (product.shippingInformation) benefits.push(product.shippingInformation);
+  if (product.warrantyInformation) benefits.push(product.warrantyInformation);
+  if (product.availabilityStatus) benefits.push(product.availabilityStatus);
+  else if (typeof product.stock === "number") {
+    benefits.push(product.stock > 0 ? `${product.stock} currently in stock` : "currently out of stock");
+  }
+
+  const sentences = [`${name} ${joinFacts(openingFacts)}.`];
+  const description = product.description?.trim().replace(/\s+/g, " ");
+  if (description) sentences.push(trimSentence(description, 180));
+  if (benefits.length > 0) sentences.push(`Practical buying details include ${joinFacts(benefits)}.`);
+
+  return sentences.slice(0, 3).join(" ");
+}
+
+function joinFacts(facts: Array<string | null>) {
+  const values = facts.filter((fact): fact is string => Boolean(fact));
+  if (values.length <= 1) return values[0] ?? "is worth considering";
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+}
+
+function trimSentence(value: string, maxLength: number) {
+  const shortened = value.length > maxLength
+    ? `${value.slice(0, maxLength).replace(/\s+\S*$/, "")}…`
+    : value;
+  return /[.!?…]$/.test(shortened) ? shortened : `${shortened}.`;
+}
+
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+}

@@ -404,6 +404,10 @@ export async function askAIChat(
 export async function getWhyBuy(product: Partial<Product>): Promise<string> {
   const response = await privateApi.post<{ text: string }>("/ai/why-buy", {
     product,
+  }, {
+    // The backend may wait briefly for NVIDIA before returning its grounded
+    // fallback. Keep the browser timeout beyond that server-side boundary.
+    timeout: 15_000,
   });
   return response.data.text;
 }
