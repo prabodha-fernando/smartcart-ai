@@ -76,7 +76,7 @@ export default function OrderDetailPage() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.17em] text-blue-100">
-                    Purchase confirmed
+                    Order received
                   </p>
                   <p className="mt-1 font-display text-2xl font-bold">
                     Thank you for your order
@@ -85,7 +85,7 @@ export default function OrderDetailPage() {
               </div>
               <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200/20 bg-emerald-300/15 px-4 py-2 text-sm font-semibold text-emerald-50">
                 <CheckCircle2 size={17} />
-                Payment {order.status}
+                Order {order.status}
               </div>
             </div>
           </div>
@@ -130,7 +130,7 @@ export default function OrderDetailPage() {
                   </p>
                 </div>
                     <p className="rounded-xl bg-slate-50 px-3 py-2 font-display font-bold text-slate-950">
-                  ${(item.price * item.quantity).toFixed(2)}
+                    ${item.lineTotal.toFixed(2)}
                 </p>
               </div>
                 ))}
@@ -183,12 +183,16 @@ export default function OrderDetailPage() {
                     <ShieldCheck size={18} />
                   </span>
                   <div>
-                    <p className="text-xs text-slate-400">Payment</p>
-                    <p className="font-medium text-slate-950">Securely processed</p>
+                    <p className="text-xs text-slate-400">Checkout</p>
+                    <p className="font-medium text-slate-950">Securely submitted</p>
                   </div>
                 </div>
               </div>
               <div className="border-t border-dashed border-slate-300 px-6 py-5">
+                <div className="mb-2 flex items-center justify-between text-sm text-slate-500">
+                  <span>Subtotal</span>
+                  <span>${order.subtotal.toFixed(2)}</span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-950">Order total</span>
                   <span className="font-display text-2xl font-bold text-slate-950">

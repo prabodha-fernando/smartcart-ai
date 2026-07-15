@@ -44,13 +44,16 @@ cp .env.example .env
 | `ACCESS_TOKEN_EXPIRES` | Access token TTL | `15m` |
 | `REFRESH_TOKEN_EXPIRES` | Refresh token TTL | `7d` |
 | `DUMMYJSON_BASE_URL` | Upstream product source | `https://dummyjson.com` |
+| `NVIDIA_NIM_API_KEY` | Server-only NVIDIA credential | — |
+| `AI_PROXY_SECRET` | Shared secret used only between Next.js and Express | — |
+| `AI_RATE_LIMIT_PER_MINUTE` | AI requests allowed per client window | `20` |
 
 ### 3. Start MongoDB
 
-Using Docker (recommended):
+Using Docker (API and MongoDB):
 
 ```bash
-docker compose up -d      # starts MongoDB on localhost:27017
+docker compose up --build -d
 ```
 
 Or point `MONGODB_URI` at a MongoDB Atlas cluster.
@@ -115,7 +118,7 @@ The Next.js application now uses this backend as its API source:
 - `/orders` and `/orders/:id` display the authenticated user's order history.
 
 This replaces browser-only persistence so user data survives cleared browser
-storage and follows the same account across devices. See [`CHANGES.md`](CHANGES.md)
+storage and follows the same account across devices. See [`CHANGES.md`](../CHANGES.md)
 for the implementation summary and end-to-end checklist.
 
 ## Testing
@@ -158,7 +161,7 @@ backend/
 All errors return a consistent JSON body:
 
 ```json
-{ "error": { "message": "…", "code": 400, "details": { } } }
+{ "success": false, "message": "Validation failed", "details": { } }
 ```
 
 ## Endpoints
@@ -169,12 +172,13 @@ All routes are prefixed with `/api`. 🔒 = requires `Authorization: Bearer <acc
 
 | Method | Path | Auth | Body | Notes |
 |--------|------|------|------|-------|
-| POST | `/auth/register` | — | `firstName, lastName, email, username, password, age?` | Creates the user and returns tokens + user summary |
-| POST | `/auth/login` | — | `username, password, expiresInMins?` | Returns access + refresh tokens (flat payload) |
-| POST | `/auth/refresh` | — | `refreshToken, expiresInMins?` | Issues a fresh token pair |
+| POST | `/auth/register` | — | `name, email, password` | Creates the user and returns tokens + user summary |
+| POST | `/auth/login` | — | `email, password` | Returns access + refresh tokens |
+| POST | `/auth/refresh` | — | `refreshToken` | Rotates the refresh token and issues a fresh token pair |
 | GET | `/auth/me` | 🔒 | — | Full profile of the authenticated user |
 
-The auth payload is **flat** (`accessToken`, `refreshToken`, and a user summary at the top level) to match the frontend's existing axios interceptor and auth store.
+Auth responses use the common `{ success, message, data }` envelope. The
+`data` object contains `accessToken`, `refreshToken`, and the user summary.
 
 ### Cart (per user)
 
@@ -219,3 +223,12 @@ Product display fields (title, price, thumbnail, rating) are **snapshotted** fro
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
 | GET | `/health` | — | Liveness probe + DB connection state |
+
+### AI (internal proxy)
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| POST | `/ai/completions` | Internal proxy secret | Rate-limited NVIDIA completion proxy used by the Next.js server only |
+
+Do not call this endpoint from browser code or expose `AI_PROXY_SECRET` with a
+`NEXT_PUBLIC_` prefix.

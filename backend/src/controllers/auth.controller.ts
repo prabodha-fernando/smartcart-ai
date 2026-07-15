@@ -28,7 +28,7 @@ function createAuthData(user: UserDocument) {
   return {
     user: serializeUser(user),
     accessToken: generateAccessToken(userId),
-    refreshToken: generateRefreshToken(userId),
+    refreshToken: generateRefreshToken(userId, user.tokenVersion),
   };
 }
 
@@ -52,7 +52,7 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body as LoginInput;
 
-  const user = await User.findOne({ email }).select("+password");
+  const user = await User.findOne({ email }).select("+password +tokenVersion");
   if (!user || !(await user.comparePassword(password))) {
     throw ApiError.unauthorized("Invalid email or password");
   }
@@ -86,16 +86,20 @@ export const me = asyncHandler(async (req, res) => {
 export const refresh = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body as RefreshInput;
 
-  let userId: string;
+  let payload: { userId: string; tokenVersion: number };
   try {
-    userId = verifyRefreshToken(refreshToken).userId;
+    payload = verifyRefreshToken(refreshToken) as typeof payload;
   } catch {
     throw ApiError.unauthorized("Invalid or expired refresh token");
   }
 
-  const user = await User.findById(userId);
+  const user = await User.findOneAndUpdate(
+    { _id: payload.userId, tokenVersion: payload.tokenVersion },
+    { $inc: { tokenVersion: 1 } },
+    { new: true }
+  ).select("+tokenVersion");
   if (!user) {
-    throw ApiError.unauthorized("User no longer exists");
+    throw ApiError.unauthorized("Invalid, expired, or already used refresh token");
   }
 
   res.status(200).json({
@@ -103,6 +107,7 @@ export const refresh = asyncHandler(async (req, res) => {
     message: "Access token refreshed successfully",
     data: {
       accessToken: generateAccessToken(user.id as string),
+      refreshToken: generateRefreshToken(user.id as string, user.tokenVersion),
     },
   });
 });

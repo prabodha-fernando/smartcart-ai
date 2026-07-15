@@ -67,7 +67,7 @@ async function getFreshAccessToken() {
     .post("/auth/refresh", { refreshToken })
     .then((response) => {
       const newAccessToken = response.data.data.accessToken as string;
-      setTokens(newAccessToken, refreshToken);
+      setTokens(newAccessToken, response.data.data.refreshToken as string);
       return newAccessToken;
     })
     .finally(() => {
@@ -114,8 +114,9 @@ privateApi.interceptors.response.use(
         });
 
         const newAccessToken = response.data.data.accessToken;
+        const newRefreshToken = response.data.data.refreshToken;
 
-        useAuthStore.getState().setTokens(newAccessToken, refreshToken);
+        useAuthStore.getState().setTokens(newAccessToken, newRefreshToken);
 
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 

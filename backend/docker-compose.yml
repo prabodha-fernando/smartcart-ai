@@ -1,6 +1,29 @@
 # Local dev database. Start with:  docker compose up -d
 # (Day 7 will add the backend service itself to this file for full Dockerization.)
 services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017/smartcart
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+      ACCESS_TOKEN_EXPIRES: ${ACCESS_TOKEN_EXPIRES:-15m}
+      REFRESH_TOKEN_EXPIRES: ${REFRESH_TOKEN_EXPIRES:-7d}
+      DUMMYJSON_BASE_URL: https://dummyjson.com
+      NVIDIA_NIM_API_KEY: ${NVIDIA_NIM_API_KEY:-}
+      NVIDIA_NIM_BASE_URL: ${NVIDIA_NIM_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      AI_PROXY_SECRET: ${AI_PROXY_SECRET:-}
+      AI_RATE_LIMIT_PER_MINUTE: ${AI_RATE_LIMIT_PER_MINUTE:-20}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
   mongo:
     image: mongo:7
     container_name: smartcart-mongo
@@ -9,6 +32,11 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
 volumes:
   mongo-data:

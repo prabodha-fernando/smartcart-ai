@@ -7,6 +7,7 @@ type TokenExpiry = SignOptions["expiresIn"];
 export interface AuthTokenPayload {
   userId: string;
   type: TokenType;
+  tokenVersion?: number;
 }
 
 function signToken(userId: string, type: TokenType, secret: Secret, expiresIn: TokenExpiry) {
@@ -30,12 +31,11 @@ export function generateAccessToken(userId: string) {
   return signToken(userId, "access", env.JWT_ACCESS_SECRET, env.ACCESS_TOKEN_EXPIRES as TokenExpiry);
 }
 
-export function generateRefreshToken(userId: string) {
-  return signToken(
-    userId,
-    "refresh",
+export function generateRefreshToken(userId: string, tokenVersion: number) {
+  return jwt.sign(
+    { userId, type: "refresh", tokenVersion },
     env.JWT_REFRESH_SECRET,
-    env.REFRESH_TOKEN_EXPIRES as TokenExpiry
+    { expiresIn: env.REFRESH_TOKEN_EXPIRES as TokenExpiry }
   );
 }
 
@@ -44,5 +44,10 @@ export function verifyAccessToken(token: string) {
 }
 
 export function verifyRefreshToken(token: string) {
-  return verifyToken(token, env.JWT_REFRESH_SECRET, "refresh");
+  const payload = verifyToken(token, env.JWT_REFRESH_SECRET, "refresh");
+  const decoded = jwt.decode(token) as jwt.JwtPayload;
+  if (typeof decoded.tokenVersion !== "number") {
+    throw new Error("Invalid refresh token version");
+  }
+  return { ...payload, tokenVersion: decoded.tokenVersion };
 }

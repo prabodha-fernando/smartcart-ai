@@ -11,13 +11,23 @@ interface IOrderItem {
   price: number;
   thumbnail: string;
   quantity: number;
+  lineTotal: number;
 }
+
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
 
 export interface IOrder {
   user: Types.ObjectId;
   items: IOrderItem[];
+  subtotal: number;
   total: number;
-  status: "paid" | "pending" | "cancelled";
+  status: OrderStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +39,7 @@ const orderItemSchema = new Schema<IOrderItem>(
     price: { type: Number, required: true },
     thumbnail: { type: String, default: "" },
     quantity: { type: Number, required: true, min: 1 },
+    lineTotal: { type: Number, required: true, min: 0 },
   },
   { _id: false }
 );
@@ -37,8 +48,20 @@ const orderSchema = new Schema<IOrder>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     items: { type: [orderItemSchema], required: true },
-    total: { type: Number, required: true },
-    status: { type: String, enum: ["paid", "pending", "cancelled"], default: "paid" },
+    subtotal: { type: Number, required: true, min: 0 },
+    total: { type: Number, required: true, min: 0 },
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "confirmed",
+        "processing",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
+      default: "pending",
+    },
   },
   {
     timestamps: true,
