@@ -1,15 +1,15 @@
-# Local dev database. Start with:  docker compose up -d
-# (Day 7 will add the backend service itself to this file for full Dockerization.)
+# SmartCart backend stack. Start with: docker compose up --build -d
 services:
   api:
     build: .
+    init: true
     restart: unless-stopped
     ports:
       - "4000:4000"
     environment:
       NODE_ENV: production
       PORT: 4000
-      MONGODB_URI: mongodb://mongo:27017/smartcart
+      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:?set MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}@mongo:27017/smartcart?authSource=admin
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
@@ -22,20 +22,48 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4000/api/health').then(async r => { const body = await r.json(); if (!r.ok || body.db !== 'connected') process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - smartcart
 
   mongo:
     image: mongo:7
     container_name: smartcart-mongo
+    command: ["mongod", "--quiet"]
     restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?set MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'exec 3<>/dev/tcp/127.0.0.1/27017'",
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
+    networks:
+      - smartcart
 
 volumes:
   mongo-data:
+
+networks:
+  smartcart:
+    driver: bridge
