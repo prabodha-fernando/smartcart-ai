@@ -58,6 +58,8 @@ cp .env.example .env
 | `PORT` | Port the API listens on | `4000` |
 | `CORS_ORIGIN` | Comma-separated allowed frontend origins | `http://localhost:3000` |
 | `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/smartcart` |
+| `MONGO_ROOT_USERNAME` | Local Compose MongoDB administrator username | — |
+| `MONGO_ROOT_PASSWORD` | Local Compose MongoDB administrator password | — |
 | `JWT_ACCESS_SECRET` | Secret for access tokens (≥16 chars) | — |
 | `JWT_REFRESH_SECRET` | Secret for refresh tokens (≥16 chars) | — |
 | `ACCESS_TOKEN_EXPIRES` | Access token TTL | `15m` |
@@ -66,23 +68,50 @@ cp .env.example .env
 | `NVIDIA_NIM_API_KEY` | Server-only NVIDIA credential | — |
 | `AI_RATE_LIMIT_PER_MINUTE` | AI requests allowed per client window | `20` |
 
-### 3. Start MongoDB
+### 3. Start the Dockerized API and MongoDB
 
-Using Docker (API and MongoDB):
+The Compose file builds the API image, starts MongoDB, waits for MongoDB to be
+healthy, and then starts the API on port 4000:
 
 ```bash
 docker compose up --build -d
+docker compose ps
 ```
 
-Or point `MONGODB_URI` at a MongoDB Atlas cluster.
+MongoDB credentials are initialized only when its data volume is first
+created. After changing `MONGO_ROOT_USERNAME` or `MONGO_ROOT_PASSWORD`, recreate
+the local volume with `docker compose down -v` before starting the stack again.
 
-### 4. Run the API
+Verify both container health and the API-to-MongoDB connection:
+
+```bash
+curl http://localhost:4000/api/health
+# { "status": "ok", "uptime": ..., "db": "connected" }
+```
+
+To stop the stack without deleting database data:
+
+```bash
+docker compose down
+```
+
+If an older MongoDB volume still has the retired unique `username_1` index and
+new registrations return `409`, run the included one-time migration:
+
+```bash
+docker compose exec api node dist/scripts/drop-username-index.js
+```
+
+### 4. Run the API directly (optional)
+
+For backend development outside Docker, start only MongoDB or point
+`MONGODB_URI` at a MongoDB Atlas cluster, then run:
 
 ```bash
 npm run dev     # watch mode (tsx)
 ```
 
-Verify it's up:
+Verify it is up:
 
 ```bash
 curl http://localhost:4000/api/health
@@ -91,11 +120,11 @@ curl http://localhost:4000/api/health
 
 ### 5. Seed the demo account
 
-The frontend's "Continue as guest" / prefilled `emilys` login expects that
-account to exist. Seed it (idempotent):
+The frontend's demo-login button expects the following account to exist. Seed
+it (idempotent):
 
 ```bash
-npm run seed    # creates emilys / emilyspass
+npm run seed    # creates emily.johnson@x.dummyjson.com / emilyspass
 ```
 
 ## Scripts
@@ -103,7 +132,7 @@ npm run seed    # creates emilys / emilyspass
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start in watch mode (tsx) |
-| `npm run seed` | Create the demo user (`emilys` / `emilyspass`) |
+| `npm run seed` | Create the demo user (`emily.johnson@x.dummyjson.com` / `emilyspass`) |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run compiled output |
 | `npm run typecheck` | Type-check without emitting |
@@ -169,7 +198,8 @@ backend/
 │   ├── scripts/        # database maintenance and seed scripts
 │   ├── app.ts          # Express app factory
 │   └── server.ts       # entry point (connect DB + listen)
-├── docker-compose.yml  # local MongoDB
+├── Dockerfile          # multi-stage production API image
+├── docker-compose.yml  # API + MongoDB development stack
 ├── .env.example
 └── tsconfig.json
 ```
