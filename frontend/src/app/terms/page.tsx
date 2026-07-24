@@ -17,7 +17,7 @@ const sections = [
   },
   {
     title: "Product information",
-    body: "Product data is provided by a third-party catalog (DummyJSON) for demonstration. Prices, availability, and details may not reflect real-world offers.",
+    body: "Product data is provided for demonstration purposes. Prices, availability, and details may not reflect real-world offers.",
   },
   {
     title: "AI recommendations",

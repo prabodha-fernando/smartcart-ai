@@ -23,8 +23,9 @@ const envSchema = z.object({
   // Comma-separated list of allowed origins for CORS (the Next.js frontend).
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
 
-  // Upstream product source proxied through this backend.
-  DUMMYJSON_BASE_URL: z.string().url().default("https://dummyjson.com"),
+  // Data encryption key (32 bytes base64 or hex)
+  ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY must be at least 32 chars"),
+
   NVIDIA_NIM_BASE_URL: z.string().url().default("https://integrate.api.nvidia.com/v1"),
   NVIDIA_NIM_API_KEY: z.string().default(""),
   AI_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),

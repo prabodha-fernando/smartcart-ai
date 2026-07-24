@@ -1,12 +1,12 @@
 import type { RequestHandler } from "express";
-import { ApiError } from "../utils/ApiError.js";
+import { AppError } from "../utils/AppError.js";
 import { verifyAccessToken } from "../utils/token.js";
 
 export const requireAuth: RequestHandler = (req, _res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith("Bearer ")) {
-    return next(ApiError.unauthorized("Missing or malformed Authorization header"));
+    return next(AppError.unauthorized("Missing or malformed Authorization header"));
   }
 
   try {
@@ -15,6 +15,6 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
     req.userId = payload.userId;
     next();
   } catch {
-    next(ApiError.unauthorized("Invalid or expired access token"));
+    next(AppError.unauthorized("Invalid or expired access token"));
   }
 };

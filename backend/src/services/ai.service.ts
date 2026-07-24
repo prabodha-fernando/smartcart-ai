@@ -1,6 +1,21 @@
-import { env } from "../config/env.js";
-import { dummyjson } from "./product.service.js";
+import { catalogDb } from "./product.service.js";
+import { completeText, completeJson, streamText } from "../utils/aiClient.js";
+import {
+  buildShoppingDecisionPrompt,
+  buildWhyBuyPrompt,
+  buildCategorySelectionPrompt,
+  buildProductSelectionPrompt,
+  buildConversationalReplyPrompt,
+  buildGroundedReplyPrompt,
+} from "../utils/promptBuilder.js";
 import type { AiChatInput, WhyBuyInput } from "../validators/ai.validator.js";
+import {
+  shoppingDecisionResponseSchema,
+  categorySelectionResponseSchema,
+  productSelectionResponseSchema,
+  allowedCategories,
+  type SearchPlan
+} from "../validators/ai-response.validator.js";
 
 interface CatalogProduct {
   id: number; title: string; price: number; rating: number; thumbnail: string;
@@ -9,21 +24,7 @@ interface CatalogProduct {
   tags?: string[]; discountPercentage?: number; stock?: number;
 }
 
-type SearchSort = "price_asc" | "price_desc" | "rating" | "best_selling" | "discount" | "newest" | null;
-interface SearchPlan {
-  query: string | null;
-  categories: string[];
-  brand: string | null;
-  color: string | null;
-  purpose: string | null;
-  minPrice: number | null;
-  maxPrice: number | null;
-  minRating: number | null;
-  minDiscount: number | null;
-  inStock: boolean | null;
-  sort: SearchSort;
-  limit: number;
-}
+type SearchSort = SearchPlan["sort"];
 
 interface ShoppingDecision {
   intent: "greeting" | "gratitude" | "product_search" | "product_question" | "app_question" | "out_of_scope";
@@ -113,6 +114,50 @@ export async function resolveAiChat(input: AiChatInput) {
   return { reply, products, intent: decision.intent, isNewSearch: products.length > 0 };
 }
 
+export async function resolveAiChatStream(
+  input: AiChatInput,
+  onStart: (metadata: { products: CatalogProduct[], intent: string, isNewSearch: boolean }) => void,
+  onChunk: (chunk: string) => void,
+  onDone: () => void
+) {
+  const latest = [...input.messages].reverse().find((message) => message.role === "user")!.content;
+  const decision = await getShoppingDecision(input);
+
+  if (!decision.requiresProducts) {
+    if (decision.intent === "product_question" && input.lastProducts.length > 0) {
+      onStart({ products: [], intent: decision.intent, isNewSearch: false });
+      await streamGroundedReply(input.messages, input.lastProducts, onChunk);
+      onDone();
+      return;
+    }
+    
+    onStart({ products: [], intent: decision.intent, isNewSearch: false });
+    await streamConversationalReply(input.messages, decision.intent, decision.reply, onChunk);
+    onDone();
+    return;
+  }
+
+  if (isShownProductQuestion(latest) && input.lastProducts.length > 0) {
+    onStart({ products: [], intent: "product_question", isNewSearch: false });
+    await streamGroundedReply(input.messages, input.lastProducts, onChunk);
+    onDone();
+    return;
+  }
+
+  const searchText = buildSearchText(input.messages);
+  const products = await findProducts(searchText, input.messages, decision.search);
+  
+  onStart({ products, intent: decision.intent, isNewSearch: products.length > 0 });
+  
+  if (products.length) {
+    await streamGroundedReply(input.messages, products, onChunk);
+  } else {
+    onChunk("I couldn't find a matching product right now. Try another product name, category, or budget.");
+  }
+  
+  onDone();
+}
+
 async function getShoppingDecision(input: AiChatInput): Promise<ShoppingDecision> {
   const latest = [...input.messages].reverse().find((message) => message.role === "user")!.content.trim();
   const lower = latest.toLowerCase();
@@ -130,17 +175,11 @@ async function getShoppingDecision(input: AiChatInput): Promise<ShoppingDecision
   }
 
   const transcript = input.messages.slice(-8).map((message) => `${message.role}: ${message.content}`).join("\n");
-  const raw = await completeJson(
-    `Understand exactly what the shopper expects. Return only JSON: ` +
-    `{"intent":"product_search|product_question|app_question|out_of_scope","requiresProducts":true,"reply":"short direct answer","search":{"query":null,"categories":[],"brand":null,"color":null,"purpose":null,"minPrice":null,"maxPrice":null,"minRating":null,"minDiscount":null,"inStock":null,"sort":null,"limit":4}}. ` +
-    `Use only explicit constraints. sort is price_asc, price_desc, rating, best_selling, discount, newest, or null. ` +
-    `Use rating only when the shopper asks for top/highest/best rated. Use best_selling only for best-selling or most-popular requests. ` +
-    `limit is 1-4. Keep reply concise and do not add information the customer did not request.\n${transcript}`,
-    320
-  );
-  const intent = raw && typeof raw.intent === "string" && ["product_search", "product_question", "app_question", "out_of_scope"].includes(raw.intent)
-    ? raw.intent as ShoppingDecision["intent"]
-    : "product_search";
+  const raw = await completeJson(buildShoppingDecisionPrompt(transcript), 320);
+  const parsed = shoppingDecisionResponseSchema.safeParse(raw);
+  const decisionData = parsed.success ? parsed.data : shoppingDecisionResponseSchema.parse({});
+
+  const intent = decisionData.intent;
   const hasExplicitSearchSignal =
     /\b(show|find|recommend|suggest|looking for|need|want|buy|cheapest|affordable|premium|best[- ]?selling|top rated|highest rated|under|below|over|above|between)\b/.test(lower) ||
     Object.keys(categoryTerms).some((term) => new RegExp(`\\b${term}s?\\b`).test(lower));
@@ -149,9 +188,9 @@ async function getShoppingDecision(input: AiChatInput): Promise<ShoppingDecision
     intent: resolvedIntent,
     requiresProducts:
       resolvedIntent === "product_search" &&
-      (hasExplicitSearchSignal || raw?.requiresProducts !== false),
-    reply: typeof raw?.reply === "string" && raw.reply.trim() ? raw.reply.trim() : "Let me find the best matches in our catalog.",
-    search: normalizeSearchPlan(raw?.search),
+      (hasExplicitSearchSignal || decisionData.requiresProducts !== false),
+    reply: decisionData.reply.trim() || "Let me find the best matches in our catalog.",
+    search: decisionData.search,
   };
 }
 
@@ -161,9 +200,7 @@ export async function resolveWhyBuy(input: WhyBuyInput) {
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`)
     .join("\n");
-  const emphasis = ["overall value", "practical ownership details", "the product's strongest verified features"][input.variation];
-  const prompt = `Using only these facts, write a fresh explanation in 2-3 short, honest sentences about why this product may be a good buy. Emphasize ${emphasis}. Use different wording from a generic product summary. No markdown or invented claims.\n${facts}`;
-  const generated = await completeText(prompt, 180, 8_000);
+  const generated = await completeText(buildWhyBuyPrompt(facts, input.variation), 180, 8_000);
   return generated || fallbackWhyBuy(product, input.variation);
 }
 
@@ -177,16 +214,14 @@ async function findProducts(text: string, messages: AiChatInput["messages"], pla
   let products: CatalogProduct[];
   if (categories.length > 0) {
     const responses = await Promise.all(
-      categories.map((category) =>
-        dummyjson.get(`/products/category/${category}`, { params: { limit: 100 } })
-      )
+      categories.map((category) => catalogDb.get(`/products/category/${category}`, { params: { limit: 100 } }))
     );
-    products = responses.flatMap(({ data }) => (data.products ?? []) as CatalogProduct[]);
+    products = responses.flatMap(({ data }) => (data.data ?? []) as CatalogProduct[]);
+  } else if (query) {
+    const { data } = await catalogDb.get("/products/search", { params: { q: query, limit: 100 } });
+    products = (data.data ?? []) as CatalogProduct[];
   } else {
-    const { data } = await dummyjson.get("/products/search", {
-      params: { q: query, limit: 100 },
-    });
-    products = (data.products ?? []) as CatalogProduct[];
+    products = [];
   }
   products = applyNeedRelevance(products, lower);
   const relevanceTerms = extractRelevanceTerms(lower);
@@ -336,20 +371,14 @@ async function resolveRequestCategories(
     .slice(0, 3);
   if (validated.length > 0) return validated;
 
-  const raw = await completeJson(
-    `Choose up to 3 categories that best match the shopper's request. ` +
-    `Use only exact slugs from AVAILABLE_CATEGORIES. Return an empty array if none fit. ` +
-    `Return only {"categories":["slug"]}.\nREQUEST\n${request}\nAVAILABLE_CATEGORIES\n${available.join(", ")}`,
-    140
-  );
-  return Array.isArray(raw?.categories)
-    ? raw.categories.filter((category): category is string => typeof category === "string" && allowed.has(category)).slice(0, 3)
-    : [];
+  const raw = await completeJson(buildCategorySelectionPrompt(request, available), 140);
+  const parsed = categorySelectionResponseSchema.safeParse(raw);
+  return parsed.success ? parsed.data.categories : [];
 }
 
 async function fetchAvailableCategories() {
   try {
-    const { data } = await dummyjson.get("/products/categories");
+    const { data } = await catalogDb.get("/products/categories");
     const categories = (Array.isArray(data) ? data : [])
       .map((category: unknown) =>
         typeof category === "string"
@@ -369,11 +398,9 @@ async function selectProductsWithAI(products: CatalogProduct[], messages: AiChat
   if (products.length <= limit) return products;
   const catalog = products.map((product) => `${product.id}: ${product.title}, $${product.price}, ${product.rating}/5, ${product.category ?? ""}`).join("\n");
   const request = messages.slice(-4).map((message) => `${message.role}: ${message.content}`).join("\n");
-  const raw = await completeJson(
-    `Choose up to ${limit} relevant product IDs from this real catalog. Respect product type, budget, rating, occasion, and use case. Return only {"productIds":[1,2]}.\nREQUEST\n${request}\nCATALOG\n${catalog}`,
-    140
-  );
-  const ids = Array.isArray(raw?.productIds) ? raw.productIds.filter((id): id is number => typeof id === "number") : [];
+  const raw = await completeJson(buildProductSelectionPrompt(limit, request, catalog), 140);
+  const parsed = productSelectionResponseSchema.safeParse(raw);
+  const ids = parsed.success ? parsed.data.productIds : [];
   const byId = new Map(products.map((product) => [product.id, product]));
   const chosen = ids.map((id) => byId.get(id)).filter((product): product is CatalogProduct => Boolean(product)).slice(0, limit);
   return chosen.length > 0 ? chosen : products.slice(0, limit);
@@ -451,11 +478,7 @@ async function conversationalReply(
 ) {
   const transcript = formatConversation(messages);
   const generated = await completeText(
-    `You are SmartCart's friendly shopping assistant having a real conversation with a customer. ` +
-    `Answer the latest message directly and naturally in 1-3 short sentences. Use earlier messages for context. ` +
-    `Stay within shopping and SmartCart. SmartCart can browse products, filter and sort the catalog, manage cart and favorites through the UI, and explain products. ` +
-    `For out-of-scope requests, politely redirect to shopping. Do not invent products, policies, orders, or completed actions. No markdown.\n` +
-    `INTENT: ${intent}\nCONVERSATION\n${transcript}`,
+    buildConversationalReplyPrompt(intent, transcript),
     180,
     5_000
   );
@@ -469,15 +492,49 @@ async function groundedReply(
   const transcript = formatConversation(messages);
   const facts = products.map((p) => `${p.title}: $${p.price}, ${p.rating}/5`).join("\n");
   const generated = await completeText(
-    `Continue this customer conversation naturally in 1-3 short sentences. Answer the latest question directly using only the listed catalog products and their facts. ` +
-    `Use earlier messages for context. Name at least one listed product exactly. Do not invent features or products. No markdown.\n` +
-    `CONVERSATION\n${transcript}\nCATALOG PRODUCTS\n${facts}`,
+    buildGroundedReplyPrompt(transcript, facts),
     200,
     5_000
   );
   return generated && referencesSelectedProduct(generated, products)
     ? generated
     : fallbackGroundedReply(products);
+}
+
+async function streamConversationalReply(
+  messages: AiChatInput["messages"],
+  intent: ShoppingDecision["intent"],
+  fallback: string,
+  onChunk: (chunk: string) => void
+) {
+  const transcript = formatConversation(messages);
+  let hasChunk = false;
+  for await (const chunk of streamText(buildConversationalReplyPrompt(intent, transcript), 180, 5_000)) {
+    hasChunk = true;
+    onChunk(chunk);
+  }
+  if (!hasChunk) {
+    onChunk(fallback);
+  }
+}
+
+async function streamGroundedReply(
+  messages: AiChatInput["messages"],
+  products: Array<{ title: string; price: number; rating: number }>,
+  onChunk: (chunk: string) => void
+) {
+  const transcript = formatConversation(messages);
+  const facts = products.map((p) => `${p.title}: $${p.price}, ${p.rating}/5`).join("\n");
+  
+  let hasChunk = false;
+  for await (const chunk of streamText(buildGroundedReplyPrompt(transcript, facts), 200, 5_000)) {
+    hasChunk = true;
+    onChunk(chunk);
+  }
+
+  if (!hasChunk) {
+    onChunk(fallbackGroundedReply(products));
+  }
 }
 
 function formatConversation(messages: AiChatInput["messages"]) {
@@ -517,51 +574,6 @@ function fallbackGroundedReply(products: Array<{ title: string; price: number; r
   return `I found ${products.length} matching options: ${names}. They range from $${Math.min(...prices).toFixed(2)} to $${Math.max(...prices).toFixed(2)}, with ratings up to ${highestRating.toFixed(1)}/5.`;
 }
 
-async function completeText(prompt: string, maxTokens: number, timeoutMs = 10_000) {
-  if (!env.NVIDIA_NIM_API_KEY) return null;
-  try {
-    const response = await fetch(`${env.NVIDIA_NIM_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${env.NVIDIA_NIM_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "meta/llama-3.1-8b-instruct", messages: [{ role: "user", content: prompt }], temperature: 0.5, max_tokens: maxTokens }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!response.ok) return null;
-    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    return data.choices?.[0]?.message?.content?.trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-async function completeJson(
-  prompt: string,
-  maxTokens: number,
-  timeoutMs = 5_000
-): Promise<Record<string, unknown> | null> {
-  if (!env.NVIDIA_NIM_API_KEY) return null;
-  try {
-    const response = await fetch(`${env.NVIDIA_NIM_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${env.NVIDIA_NIM_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "meta/llama-3.1-8b-instruct",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: maxTokens,
-        response_format: { type: "json_object" },
-      }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!response.ok) return null;
-    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content;
-    return content ? JSON.parse(content) as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
-}
-
 function buildSearchText(messages: AiChatInput["messages"]) {
   const userMessages = messages.filter((message) => message.role === "user").map((message) => message.content);
   const latest = userMessages.at(-1) ?? "";
@@ -570,39 +582,7 @@ function buildSearchText(messages: AiChatInput["messages"]) {
   return `${userMessages.at(-2)} ${latest}`;
 }
 
-const allowedCategories = new Set([
-  "beauty", "fragrances", "furniture", "groceries", "home-decoration",
-  "kitchen-accessories", "laptops", "mens-shirts", "mens-shoes",
-  "mens-watches", "mobile-accessories", "motorcycle", "skin-care",
-  "smartphones", "sports-accessories", "sunglasses", "tablets", "tops",
-  "vehicle", "womens-bags", "womens-dresses", "womens-jewellery",
-  "womens-shoes", "womens-watches",
-]);
 
-function normalizeSearchPlan(value: unknown): SearchPlan {
-  const raw = typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
-  const categories = Array.isArray(raw.categories)
-    ? raw.categories.filter((category): category is string => typeof category === "string" && allowedCategories.has(category)).slice(0, 3)
-    : [];
-  const sort = typeof raw.sort === "string" && ["price_asc", "price_desc", "rating", "best_selling", "discount", "newest"].includes(raw.sort)
-    ? raw.sort as SearchSort
-    : null;
-  const numberOrNull = (candidate: unknown) => typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;
-  return {
-    query: typeof raw.query === "string" && raw.query.trim() ? raw.query.trim().slice(0, 80) : null,
-    categories,
-    brand: typeof raw.brand === "string" && raw.brand.trim() ? raw.brand.trim().slice(0, 80) : null,
-    color: typeof raw.color === "string" && raw.color.trim() ? raw.color.trim().slice(0, 40) : null,
-    purpose: typeof raw.purpose === "string" && raw.purpose.trim() ? raw.purpose.trim().slice(0, 80) : null,
-    minPrice: numberOrNull(raw.minPrice),
-    maxPrice: numberOrNull(raw.maxPrice),
-    minRating: numberOrNull(raw.minRating),
-    minDiscount: numberOrNull(raw.minDiscount),
-    inStock: typeof raw.inStock === "boolean" ? raw.inStock : null,
-    sort,
-    limit: typeof raw.limit === "number" ? Math.min(4, Math.max(1, Math.floor(raw.limit))) : 4,
-  };
-}
 
 function extractQuery(text: string) {
   return text.replace(/\b(show|find|recommend|suggest|give|me|products?|items?|under|below|over|above|cheapest|best|rated|please)\b/g, " ").replace(/\$?\d+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "products";

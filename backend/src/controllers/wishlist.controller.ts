@@ -1,5 +1,5 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { AppError } from "../utils/AppError.js";
 import {
   addItemToWishlist,
   getWishlistForUser,
@@ -12,7 +12,7 @@ import type {
 
 function getUserId(userId?: string) {
   if (!userId) {
-    throw ApiError.unauthorized("Unauthorized");
+    throw AppError.unauthorized("Unauthorized");
   }
 
   return userId;

@@ -1,8 +1,9 @@
 import type { HydratedDocument } from "mongoose";
-import { Wishlist, type IWishlist } from "../models/Wishlist.js";
+import { type IWishlist } from "../models/Wishlist.js";
 import type { AddWishlistItemInput } from "../validators/wishlist.validator.js";
-import { ApiError } from "../utils/ApiError.js";
+import { AppError } from "../utils/AppError.js";
 import { fetchProductSnapshot } from "./product.service.js";
+import { WishlistRepository } from "../repositories/wishlist.repository.js";
 
 export interface SerializedWishlistItem {
   productId: number;
@@ -35,9 +36,9 @@ function serializeWishlist(
 }
 
 async function getOrCreateWishlist(userId: string) {
-  const existingWishlist = await Wishlist.findOne({ user: userId });
+  const existingWishlist = await WishlistRepository.findByUserId(userId);
 
-  return existingWishlist ?? Wishlist.create({ user: userId, items: [] });
+  return existingWishlist ?? WishlistRepository.create(userId);
 }
 
 export async function getWishlistForUser(userId: string) {
@@ -56,7 +57,7 @@ export async function addItemToWishlist(
   );
 
   if (alreadyExists) {
-    throw ApiError.conflict("Product already exists in wishlist");
+    throw AppError.conflict("Product already exists in wishlist");
   }
 
   const product = await fetchProductSnapshot(input.productId);
@@ -67,7 +68,7 @@ export async function addItemToWishlist(
     price: product.price,
     thumbnail: product.thumbnail,
   });
-  await wishlist.save();
+  await WishlistRepository.save(wishlist);
 
   return serializeWishlist(wishlist);
 }
@@ -82,11 +83,11 @@ export async function removeItemFromWishlist(
   );
 
   if (itemIndex === -1) {
-    throw ApiError.notFound("Product not found in wishlist");
+    throw AppError.notFound("Product not found in wishlist");
   }
 
   wishlist.items.splice(itemIndex, 1);
-  await wishlist.save();
+  await WishlistRepository.save(wishlist);
 
   return serializeWishlist(wishlist);
 }

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { createApp } from "../app.js";
 import { Cart } from "../models/Cart.js";
 import { User } from "../models/User.js";
-import { dummyjson } from "../services/product.service.js";
+import { catalogDb } from "../services/product.service.js";
 
 const app = createApp();
 let mongoServer: MongoMemoryServer;
@@ -29,7 +29,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await Promise.all([User.deleteMany({}), Cart.deleteMany({})]);
   vi.restoreAllMocks();
-  vi.spyOn(dummyjson, "get").mockResolvedValue({
+  vi.spyOn(catalogDb, "get").mockResolvedValue({
     data: {
       id: 1,
       title: "Essence Mascara Lash Princess",
