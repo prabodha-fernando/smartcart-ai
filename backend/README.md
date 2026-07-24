@@ -64,8 +64,7 @@ cp .env.example .env
 | `JWT_REFRESH_SECRET` | Secret for refresh tokens (≥16 chars) | — |
 | `ACCESS_TOKEN_EXPIRES` | Access token TTL | `15m` |
 | `REFRESH_TOKEN_EXPIRES` | Refresh token TTL | `7d` |
-| `DUMMYJSON_BASE_URL` | Upstream product source | `https://dummyjson.com` |
-| `NVIDIA_NIM_API_KEY` | Server-only NVIDIA credential | — |
+| `| `NVIDIA_NIM_API_KEY` | Server-only NVIDIA credential | — |
 | `AI_RATE_LIMIT_PER_MINUTE` | AI requests allowed per client window | `20` |
 
 ### 3. Start the Dockerized API and MongoDB
@@ -124,7 +123,7 @@ The frontend's demo-login button expects the following account to exist. Seed
 it (idempotent):
 
 ```bash
-npm run seed    # creates emily.johnson@x.dummyjson.com / emilyspass
+npm run seed    # creates emily.johnson@smartcart.local / emilyspass
 ```
 
 ## Scripts
@@ -132,7 +131,7 @@ npm run seed    # creates emily.johnson@x.dummyjson.com / emilyspass
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start in watch mode (tsx) |
-| `npm run seed` | Create the demo user (`emily.johnson@x.dummyjson.com` / `emilyspass`) |
+| `npm run seed` | Create the demo user (`emily.johnson@smartcart.local` / `emilyspass`) |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run compiled output |
 | `npm run typecheck` | Type-check without emitting |

@@ -102,10 +102,12 @@ export async function refreshAccessToken(
 
 export async function getProducts(
   limit: number = 12,
-  skip: number = 0
+  page: number = 1,
+  sort?: string
 ): Promise<ProductsResponse> {
+  const sortParam = sort ? `&sort=${sort}` : "";
   const response = await publicApi.get(
-    `/products?limit=${limit}&skip=${skip}`
+    `/products?limit=${limit}&page=${page}${sortParam}`
   );
 
   return response.data;
@@ -120,10 +122,12 @@ export async function getProductById(
 }
 
 export async function searchProducts(
-  query: string
+  query: string,
+  sort?: string
 ): Promise<ProductsResponse> {
+  const sortParam = sort ? `&sort=${sort}` : "";
   const response = await publicApi.get(
-    `/products/search?q=${encodeURIComponent(query)}`
+    `/products/search?q=${encodeURIComponent(query)}${sortParam}`
   );
 
   return response.data;
@@ -136,9 +140,11 @@ export async function getCategories(): Promise<ProductCategory[]> {
 }
 
 export async function getProductsByCategory(
-  category: string
+  category: string,
+  sort?: string
 ): Promise<ProductsResponse> {
-  const response = await publicApi.get(`/products/category/${category}`);
+  const sortParam = sort ? `?sort=${sort}` : "";
+  const response = await publicApi.get(`/products/category/${category}${sortParam}`);
 
   return response.data;
 }
@@ -155,10 +161,10 @@ export async function getProductsByIds(
 
 export async function getLimitedProducts(
   limit: number,
-  skip: number
+  page: number
 ): Promise<LimitedProductsResponse> {
   const response = await publicApi.get(
-    `/products?limit=${limit}&skip=${skip}&select=title,price,rating,thumbnail`
+    `/products?limit=${limit}&page=${page}&select=title,price,rating,thumbnail`
   );
 
   return response.data;

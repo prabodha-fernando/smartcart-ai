@@ -64,18 +64,21 @@ export interface FavoriteItem extends LimitedProduct {
   note?: string;
 }
 
-export interface ProductsResponse {
-  products: Product[];
-  total: number;
-  skip: number;
+export interface PaginationMeta {
+  page: number;
   limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ProductsResponse {
+  data: Product[];
+  pagination: PaginationMeta;
 }
 
 export interface LimitedProductsResponse {
-  products: LimitedProduct[];
-  total: number;
-  skip: number;
-  limit: number;
+  data: LimitedProduct[];
+  pagination: PaginationMeta;
 }
 
 export interface AIProductQuery {

@@ -29,7 +29,7 @@ export default function LimitedProductsPage() {
           )}
 
           <div className="mt-6 grid gap-6 md:grid-cols-4">
-            {data?.products?.map((product, index) => (
+            {data?.data?.map((product, index) => (
               <div
                 key={product.id}
                 className="premium-card p-6"

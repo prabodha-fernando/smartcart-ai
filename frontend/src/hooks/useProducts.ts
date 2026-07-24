@@ -8,10 +8,10 @@ import {
   getLimitedProducts,
 } from "@/services/api";
 
-export function useProducts(limit: number = 12, skip: number = 0) {
+export function useProducts(limit: number = 12, page: number = 1, sort?: string) {
   return useQuery({
-    queryKey: ["products", limit, skip],
-    queryFn: () => getProducts(limit, skip),
+    queryKey: ["products", limit, page, sort],
+    queryFn: () => getProducts(limit, page, sort),
   });
 }
 
@@ -23,10 +23,10 @@ export function useProduct(id: string) {
   });
 }
 
-export function useSearchProducts(query: string) {
+export function useSearchProducts(query: string, sort?: string) {
   return useQuery({
-    queryKey: ["products", "search", query],
-    queryFn: () => searchProducts(query),
+    queryKey: ["products", "search", query, sort],
+    queryFn: () => searchProducts(query, sort),
     enabled: query.length > 0,
   });
 }
@@ -38,21 +38,21 @@ export function useCategories() {
   });
 }
 
-export function useProductsByCategory(category: string) {
+export function useProductsByCategory(category: string, sort?: string) {
   return useQuery({
-    queryKey: ["products", "category", category],
-    queryFn: () => getProductsByCategory(category),
+    queryKey: ["products", "category", category, sort],
+    queryFn: () => getProductsByCategory(category, sort),
     enabled: !!category,
   });
 }
 
 export function useLimitedProducts(
   limit: number,
-  skip: number
+  page: number
 ) {
   return useQuery({
-    queryKey: ["limited-products", limit, skip],
-    queryFn: () => getLimitedProducts(limit, skip),
+    queryKey: ["limited-products", limit, page],
+    queryFn: () => getLimitedProducts(limit, page),
   });
 }
 
@@ -60,14 +60,12 @@ export function useInfiniteLimitedProducts(limit: number = 8) {
   return useInfiniteQuery({
     queryKey: ["limited-products", "infinite", limit],
     queryFn: ({ pageParam }) => getLimitedProducts(limit, pageParam),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, pages) => {
-      const loaded = pages.reduce(
-        (count, page) => count + page.products.length,
-        0
-      );
-
-      return loaded < lastPage.total ? loaded : undefined;
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.pagination.page < lastPage.pagination.totalPages) {
+        return lastPage.pagination.page + 1;
+      }
+      return undefined;
     },
   });
 }

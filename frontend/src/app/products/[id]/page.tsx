@@ -79,7 +79,7 @@ export default function ProductDetailsPage() {
     thumbnail: product.thumbnail,
   };
   const frequentlyBoughtTogether =
-    categoryProducts?.products
+    categoryProducts?.data
       .filter((item) => item.id !== product.id)
       .slice(0, 4)
       .map((item) => ({

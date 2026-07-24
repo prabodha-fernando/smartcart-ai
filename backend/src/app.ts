@@ -7,6 +7,7 @@ import { connectDB } from "./config/db.js";
 import apiRouter from "./routes/index.js";
 import { errorHandler, notFound } from "./middleware/error-handler.middleware.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
+import { encryptPayload } from "./middleware/encryptPayload.js";
 
 /**
  * Builds and configures the Express application (no side effects like
@@ -16,12 +17,17 @@ import { asyncHandler } from "./utils/asyncHandler.js";
 export function createApp() {
   const app = express();
 
+  if (env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
+
   // Core middleware
   app.use(helmet());
   app.use(cors({ origin: corsOrigins, credentials: true }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   if (env.NODE_ENV !== "test") {
+    app.use(encryptPayload);
     app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined"));
   }
 

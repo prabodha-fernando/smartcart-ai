@@ -4,7 +4,7 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import { AiRateLimit } from "../models/AiRateLimit.js";
-import { dummyjson } from "../services/product.service.js";
+import { catalogDb } from "../services/product.service.js";
 import { User } from "../models/User.js";
 
 const app = createApp();
@@ -39,7 +39,7 @@ describe("AI API", () => {
     "womens-shoes", "womens-watches",
   ];
   it("handles greetings without calling the catalog", async () => {
-    const catalog = vi.spyOn(dummyjson, "get");
+    const catalog = vi.spyOn(catalogDb, "get");
     const response = await request(app).post("/api/ai/chat").send({
       messages: [{ role: "user", content: "Hello" }],
       lastProducts: [],
@@ -86,7 +86,7 @@ describe("AI API", () => {
     ["Thank you", "gratitude"],
     ["Tell me today's weather", "out_of_scope"],
   ])("handles non-search intent %s without catalog access", async (content, intent) => {
-    const catalog = vi.spyOn(dummyjson, "get");
+    const catalog = vi.spyOn(catalogDb, "get");
     const response = await request(app).post("/api/ai/chat").send({
       messages: [{ role: "user", content }],
       lastProducts: [],
@@ -98,9 +98,9 @@ describe("AI API", () => {
   });
 
   it("searches real catalog data and applies price filters", async () => {
-    vi.spyOn(dummyjson, "get").mockResolvedValue({
+    vi.spyOn(catalogDb, "get").mockResolvedValue({
       data: {
-        products: [
+        data: [
           { id: 1, title: "Budget Phone", price: 300, rating: 4.3, thumbnail: "https://example.com/1.png" },
           { id: 2, title: "Premium Phone", price: 900, rating: 4.9, thumbnail: "https://example.com/2.png" },
         ],
@@ -125,9 +125,9 @@ describe("AI API", () => {
     ["Something elegant to wear to a wedding", "womens-dresses"],
     ["Best noise-cancelling headphones under $200", "mobile-accessories"],
   ])("routes broad need %s to relevant catalog categories", async (prompt, expectedCategory) => {
-    const catalog = vi.spyOn(dummyjson, "get").mockImplementation(async (url) => ({
+    const catalog = vi.spyOn(catalogDb, "get").mockImplementation(async (url) => ({
       data: {
-        products: String(url).endsWith(`/${expectedCategory}`)
+        data: String(url).endsWith(`/${expectedCategory}`)
           ? [{ id: 10, title: "Relevant Product", category: expectedCategory, price: 100, rating: 4.8, thumbnail: "https://example.com/relevant.png" }]
           : [],
       },
@@ -148,9 +148,9 @@ describe("AI API", () => {
   });
 
   it("carries the previous product request into a budget follow-up", async () => {
-    const catalog = vi.spyOn(dummyjson, "get").mockResolvedValue({
+    const catalog = vi.spyOn(catalogDb, "get").mockResolvedValue({
       data: {
-        products: [
+        data: [
           { id: 1, title: "Affordable Laptop", category: "laptops", price: 700, rating: 4.2, thumbnail: "https://example.com/1.png" },
           { id: 2, title: "Expensive Laptop", category: "laptops", price: 1400, rating: 4.8, thumbnail: "https://example.com/2.png" },
         ],
@@ -172,9 +172,9 @@ describe("AI API", () => {
   });
 
   it("returns only the customer's requested brand, budget, rating, sort, and count", async () => {
-    vi.spyOn(dummyjson, "get").mockResolvedValue({
+    vi.spyOn(catalogDb, "get").mockResolvedValue({
       data: {
-        products: [
+        data: [
           { id: 1, title: "Samsung Value Phone", brand: "Samsung", category: "smartphones", price: 500, rating: 4.4, thumbnail: "https://example.com/1.png" },
           { id: 2, title: "Samsung Premium Phone", brand: "Samsung", category: "smartphones", price: 750, rating: 4.8, thumbnail: "https://example.com/2.png" },
           { id: 3, title: "Apple Phone", brand: "Apple", category: "smartphones", price: 450, rating: 4.9, thumbnail: "https://example.com/3.png" },
@@ -195,13 +195,13 @@ describe("AI API", () => {
   });
 
   it("lets AI choose only from categories currently available in the store", async () => {
-    vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
+    vi.spyOn(catalogDb, "get").mockImplementation(async (url) => {
       if (url === "/products/categories") {
         return { data: [{ slug: "sports-accessories" }, { slug: "groceries" }] };
       }
       return {
         data: {
-          products: [{ id: 20, title: "Cricket Bat", category: "sports-accessories", price: 80, rating: 4.7, thumbnail: "https://example.com/bat.png" }],
+        data: [{ id: 20, title: "Cricket Bat", category: "sports-accessories", price: 80, rating: 4.7, thumbnail: "https://example.com/bat.png" }],
         },
       };
     });
@@ -223,20 +223,20 @@ describe("AI API", () => {
     expect(response.body.products).toEqual([
       expect.objectContaining({ id: 20, title: "Cricket Bat" }),
     ]);
-    expect(dummyjson.get).toHaveBeenCalledWith(
+    expect(catalogDb.get).toHaveBeenCalledWith(
       "/products/category/sports-accessories",
       { params: { limit: 100 } }
     );
   });
 
   it("does not let AI misclassify an explicit catalog search", async () => {
-    vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
+    vi.spyOn(catalogDb, "get").mockImplementation(async (url) => {
       if (url === "/products/categories") {
         return { data: storeCategories.map((slug) => ({ slug })) };
       }
       return {
         data: {
-          products: [{ id: 21, title: "Reliable Phone", category: "smartphones", price: 300, rating: 4.6, thumbnail: "https://example.com/phone.png" }],
+        data: [{ id: 21, title: "Reliable Phone", category: "smartphones", price: 300, rating: 4.6, thumbnail: "https://example.com/phone.png" }],
         },
       };
     });
@@ -269,9 +269,9 @@ describe("AI API", () => {
   });
 
   it("ignores AI constraints that the customer did not explicitly request", async () => {
-    vi.spyOn(dummyjson, "get").mockResolvedValue({
+    vi.spyOn(catalogDb, "get").mockResolvedValue({
       data: {
-        products: [
+        data: [
           { id: 1, title: "Phone A", brand: "Samsung", category: "smartphones", price: 300, rating: 4.8, thumbnail: "https://example.com/1.png" },
           { id: 2, title: "Phone B", brand: "Realme", category: "smartphones", price: 450, rating: 4.7, thumbnail: "https://example.com/2.png" },
           { id: 3, title: "Phone C", brand: "Apple", category: "smartphones", price: 900, rating: 4.9, thumbnail: "https://example.com/3.png" },
@@ -311,13 +311,13 @@ describe("AI API", () => {
   });
 
   it("rejects an AI reply that names a product outside the selected catalog results", async () => {
-    vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
+    vi.spyOn(catalogDb, "get").mockImplementation(async (url) => {
       if (url === "/products/categories") {
         return { data: storeCategories.map((slug) => ({ slug })) };
       }
       return {
         data: {
-          products: [{ id: 22, title: "Samsung Galaxy S8", brand: "Samsung", category: "smartphones", price: 499.99, rating: 4.4, thumbnail: "https://example.com/s8.png" }],
+        data: [{ id: 22, title: "Samsung Galaxy S8", brand: "Samsung", category: "smartphones", price: 499.99, rating: 4.4, thumbnail: "https://example.com/s8.png" }],
         },
       };
     });
@@ -344,11 +344,11 @@ describe("AI API", () => {
   });
 
   it.each(storeCategories)("filters the complete store category: %s", async (category) => {
-    const catalog = vi.spyOn(dummyjson, "get").mockImplementation(async (url) => {
+    const catalog = vi.spyOn(catalogDb, "get").mockImplementation(async (url) => {
       if (url === "/products/categories") return { data: storeCategories.map((slug) => ({ slug })) };
       return {
         data: {
-          products: [{ id: 30, title: `${category} product`, category, price: 50, rating: 4.2, thumbnail: "https://example.com/category.png" }],
+        data: [{ id: 30, title: `${category} product`, category, price: 50, rating: 4.2, thumbnail: "https://example.com/category.png" }],
         },
       };
     });
@@ -367,9 +367,9 @@ describe("AI API", () => {
     ["Show me the top rated phone", 2],
     ["Show me the best-selling phone", 3],
   ])("applies requested ranking only for: %s", async (content, expectedId) => {
-    vi.spyOn(dummyjson, "get").mockResolvedValue({
+    vi.spyOn(catalogDb, "get").mockResolvedValue({
       data: {
-        products: [
+        data: [
           { id: 1, title: "Ordinary Phone", category: "smartphones", price: 300, rating: 4.1, reviews: [{}], thumbnail: "https://example.com/1.png" },
           { id: 2, title: "Highest Rated Phone", category: "smartphones", price: 500, rating: 4.95, reviews: [{}, {}], thumbnail: "https://example.com/2.png" },
           { id: 3, title: "Most Reviewed Phone", category: "smartphones", price: 450, rating: 4.6, reviews: [{}, {}, {}, {}, {}], thumbnail: "https://example.com/3.png" },
@@ -388,9 +388,9 @@ describe("AI API", () => {
   });
 
   it("respects an explicit result count for a ranked category request", async () => {
-    vi.spyOn(dummyjson, "get").mockResolvedValue({
+    vi.spyOn(catalogDb, "get").mockResolvedValue({
       data: {
-        products: [
+        data: [
           { id: 1, title: "Phone A", category: "smartphones", price: 300, rating: 4.2, thumbnail: "https://example.com/1.png" },
           { id: 2, title: "Phone B", category: "smartphones", price: 400, rating: 4.9, thumbnail: "https://example.com/2.png" },
           { id: 3, title: "Phone C", category: "smartphones", price: 350, rating: 4.7, thumbnail: "https://example.com/3.png" },
@@ -409,9 +409,9 @@ describe("AI API", () => {
   });
 
   it("strictly applies an explicitly requested color inside the selected category", async () => {
-    const catalog = vi.spyOn(dummyjson, "get").mockResolvedValue({
+    const catalog = vi.spyOn(catalogDb, "get").mockResolvedValue({
       data: {
-        products: [
+        data: [
           { id: 1, title: "Red Evening Dress", category: "womens-dresses", description: "Elegant red dress", price: 80, rating: 4.6, thumbnail: "https://example.com/red.png" },
           { id: 2, title: "Black Evening Dress", category: "womens-dresses", description: "Elegant black dress", price: 70, rating: 4.9, thumbnail: "https://example.com/black.png" },
         ],

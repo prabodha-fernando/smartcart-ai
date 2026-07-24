@@ -10,10 +10,17 @@ import type {
 } from "@/types/product";
 import { useCartStore, type CartItem } from "@/store/cartStore";
 import { useFavoritesStore } from "@/store/favoritesStore";
-import { askAIChat } from "@/services/api";
+import { useAuthStore } from "@/store/authStore";
+import { getSocket } from "@/lib/socket";
+import { useTabState } from "@/hooks/useTabState";
 
-export function useAIChat(contextProducts?: LimitedProduct[]) {
-  const [messages, setMessages] = useState<AIChatMessage[]>([]);
+// Keep requests within the backend's validation limits (messages ≤ 20,
+// lastProducts ≤ 20) while still sending enough recent context.
+const MAX_CONTEXT_MESSAGES = 16;
+const MAX_CONTEXT_PRODUCTS = 20;
+
+export function useAIChat(contextProducts?: LimitedProduct[], enabled: boolean = true) {
+  const [messages, setMessages] = useTabState<AIChatMessage[]>("chat_messages", [], (s) => s.length > 0, enabled);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cartItems = useCartStore((state) => state.items);
@@ -27,13 +34,15 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
   const updateNote = useFavoritesStore((state) => state.updateNote);
   const clearFavorites = useFavoritesStore((state) => state.clearFavorites);
 
-  const lastProductsRef = useRef<LimitedProduct[]>(contextProducts ?? []);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const currentMessageRef = useRef("");
+  const [lastProducts, setLastProducts] = useTabState<LimitedProduct[]>("chat_context", contextProducts ?? [], (s) => s.length > 0, enabled);
 
   useEffect(() => {
     if (contextProducts && contextProducts.length > 0 && messages.length === 0) {
-      lastProductsRef.current = contextProducts;
+      setLastProducts(contextProducts);
     }
-  }, [contextProducts, messages.length]);
+  }, [contextProducts, messages.length, setLastProducts]);
 
   const patchLast = useCallback(
     (updater: (message: AIChatMessage) => AIChatMessage) => {
@@ -46,6 +55,57 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
     },
     []
   );
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const socket = getSocket(accessToken);
+
+    const onStart = (metadata: { products: LimitedProduct[], intent: string, isNewSearch: boolean }) => {
+      currentMessageRef.current = "";
+      if (metadata.products && metadata.products.length > 0) {
+        setLastProducts(metadata.products);
+      }
+      patchLast((m) => ({
+        ...m,
+        content: "",
+        products: metadata.isNewSearch ? metadata.products : undefined,
+      }));
+    };
+
+    const onChunk = (chunk: string) => {
+      currentMessageRef.current += chunk;
+      patchLast((m) => ({
+        ...m,
+        content: currentMessageRef.current,
+      }));
+    };
+
+    const onDone = () => {
+      setIsStreaming(false);
+    };
+
+    const onError = ({ message }: { message: string }) => {
+      setError(message);
+      setIsStreaming(false);
+      patchLast((m) =>
+        m.content
+          ? m
+          : { ...m, content: message }
+      );
+    };
+
+    socket.on("ai:start", onStart);
+    socket.on("ai:chunk", onChunk);
+    socket.on("ai:done", onDone);
+    socket.on("ai:error", onError);
+
+    return () => {
+      socket.off("ai:start", onStart);
+      socket.off("ai:chunk", onChunk);
+      socket.off("ai:done", onDone);
+      socket.off("ai:error", onError);
+    };
+  }, [accessToken, patchLast]);
 
   const send = useCallback(
     async (text: string) => {
@@ -64,7 +124,7 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
 
       try {
         const localAction = resolveChatCrudCommand(content, {
-          lastProducts: lastProductsRef.current,
+          lastProducts,
           cartItems,
           favorites,
           addItem,
@@ -79,7 +139,7 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
 
         if (localAction) {
           if (localAction.products.length > 0) {
-            lastProductsRef.current = localAction.products;
+            setLastProducts(localAction.products);
           }
 
           patchLast((m) => ({
@@ -91,20 +151,20 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
           return;
         }
 
-        const data: AIChatResponse = await askAIChat(
-          history.map(({ role, content }) => ({ role, content })),
-          lastProductsRef.current
-        );
-
-        if (Array.isArray(data.products) && data.products.length > 0) {
-          lastProductsRef.current = data.products;
+        // The backend only uses the most recent turns for context, and its
+        // schema caps history at 20 messages. Send a bounded recent window so
+        // long, persistent conversations never exceed that limit.
+        const recent = history.slice(-MAX_CONTEXT_MESSAGES);
+        
+        if (!accessToken) {
+          throw new Error("You must be logged in to use the AI assistant.");
         }
 
-        patchLast((m) => ({
-          ...m,
-          content: data.reply,
-          products: data.isNewSearch ? data.products : undefined,
-        }));
+        const socket = getSocket(accessToken);
+        socket.emit("ai:message", {
+          messages: recent.map(({ role, content }) => ({ role, content })),
+          lastProducts: lastProducts.slice(0, MAX_CONTEXT_PRODUCTS)
+        });
       } catch (requestError) {
         const message = getChatErrorMessage(requestError);
         setError(message);
@@ -116,11 +176,11 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
                 content: message,
               }
         );
-      } finally {
         setIsStreaming(false);
       }
     },
     [
+      accessToken,
       messages,
       isStreaming,
       patchLast,
@@ -134,19 +194,24 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
       removeFavorite,
       updateNote,
       clearFavorites,
+      lastProducts,
+      setLastProducts,
     ]
   );
 
   const reset = useCallback(() => {
     setMessages([]);
-    lastProductsRef.current = contextProducts ?? [];
+    setLastProducts(contextProducts ?? []);
     setError(null);
-  }, [contextProducts]);
+  }, [contextProducts, setMessages, setLastProducts]);
 
   return { messages, isStreaming, error, send, reset };
 }
 
 function getChatErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
   if (axios.isAxiosError(error)) {
     const backendMessage = error.response?.data?.message;
     if (typeof backendMessage === "string" && backendMessage.trim()) {

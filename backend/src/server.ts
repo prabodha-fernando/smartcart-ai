@@ -1,6 +1,7 @@
 import { createApp } from "./app.js";
 import { connectDB, disconnectDB } from "./config/db.js";
 import { env } from "./config/env.js";
+import { initSocket } from "./socket/index.js";
 
 function isNodeListenError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
@@ -20,6 +21,8 @@ async function start() {
     console.log(`🚀 SmartCart API running at http://localhost:${env.PORT}/api`);
     console.log(`   Environment: ${env.NODE_ENV}`);
   });
+
+  initSocket(server);
 
   server.on("error", async (err) => {
     if (isNodeListenError(err) && err.code === "EADDRINUSE") {

@@ -5,7 +5,9 @@ const limitedProductSchema = z.object({
   title: z.string().min(1).max(200),
   price: z.number().nonnegative(),
   rating: z.number().min(0).max(5),
-  thumbnail: z.string().url(),
+  // Thumbnails are normally URLs, but a catalog item can legitimately have an
+  // empty thumbnail. Tolerate it so it never 400s an otherwise-valid chat.
+  thumbnail: z.string().url().or(z.literal("")),
 });
 
 export const aiChatSchema = z.object({

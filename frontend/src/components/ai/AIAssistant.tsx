@@ -8,6 +8,7 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  useMemo,
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -50,8 +51,14 @@ function AIAssistant(
   },
   ref: Ref<AIAssistantHandle>
 ) {
+  const contextProducts = useMemo(
+    () => (contextProduct ? [contextProduct] : undefined),
+    [contextProduct]
+  );
+
   const { messages, isStreaming, error, send, reset } = useAIChat(
-    contextProduct ? [contextProduct] : undefined
+    contextProducts,
+    !onFirstPrompt
   );
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -216,22 +223,20 @@ function ChatBubble({
       className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}
     >
       <span
-        className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          isUser
+        className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isUser
             ? "bg-slate-100 text-slate-500"
             : "bg-teal-700 text-white"
-        }`}
+          }`}
       >
         {isUser ? <UserCircle size={18} /> : <Sparkles size={15} />}
       </span>
 
       <div className={`min-w-0 max-w-[85%] ${isUser ? "items-end" : "items-start"}`}>
         <div
-          className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-            isUser
+          className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${isUser
               ? "bg-blue-700 text-white"
               : "bg-slate-50 text-slate-700"
-          }`}
+            }`}
         >
           {showTyping ? (
             <TypingDots />
