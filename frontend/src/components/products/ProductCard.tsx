@@ -46,8 +46,7 @@ export default function ProductCard({
     );
   };
 
-  const rating = product.rating ?? 0;
-  const roundedRating = Math.round(rating);
+  const roundedRating = Math.round(product.rating);
 
   return (
     <motion.article
@@ -112,7 +111,7 @@ export default function ProductCard({
             ))}
           </div>
           <span className="text-sm font-medium text-slate-500">
-            {rating.toFixed(1)}
+            {product.rating.toFixed(1)}
           </span>
         </div>
       </Link>

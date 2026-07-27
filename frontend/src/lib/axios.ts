@@ -1,5 +1,4 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import { useAuthStore } from "@/store/authStore";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 
@@ -21,24 +20,6 @@ export const privateApi = axios.create({
     "Content-Type": "application/json",
   },
 });
-
-const decryptionInterceptor = (response: any) => {
-  if (response.data && response.data.encryptedPayload) {
-    try {
-      const key = process.env.NEXT_PUBLIC_ENCRYPTION_KEY || "";
-      const bytes = CryptoJS.AES.decrypt(response.data.encryptedPayload, key);
-      const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-      if (decryptedString) {
-        response.data = JSON.parse(decryptedString);
-      }
-    } catch (error) {
-      console.error("Failed to decrypt API payload:", error);
-    }
-  }
-  return response;
-};
-
-publicApi.interceptors.response.use(decryptionInterceptor, (error) => Promise.reject(error));
 
 function getJwtExpiry(token: string | null): number | null {
   if (!token) return null;
@@ -114,7 +95,7 @@ privateApi.interceptors.request.use(
 
 // RESPONSE INTERCEPTOR
 privateApi.interceptors.response.use(
-  decryptionInterceptor,
+  (response) => response,
   async (error) => {
     const originalRequest = error.config;
 

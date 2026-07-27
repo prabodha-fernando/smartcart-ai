@@ -1,15 +1,9 @@
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { Schema, model, type HydratedDocument, type Model } from "mongoose";
-import mongooseFieldEncryption from "mongoose-field-encryption";
-import { env } from "../config/env.js";
-
-const { fieldEncryption } = mongooseFieldEncryption as any;
 
 export interface IUser {
   name: string;
   email: string;
-  emailHash: string; // Used for deterministic querying (e.g. login)
   password: string;
   tokenVersion: number;
 }
@@ -33,15 +27,9 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     email: {
       type: String,
       required: true,
+      unique: true,
       lowercase: true,
       trim: true,
-    },
-    emailHash: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-      select: false,
     },
     password: {
       type: String,
@@ -57,26 +45,12 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
         ret.id = String(ret._id);
         delete ret._id;
         delete ret.__v;
-        delete ret.emailHash;
-        delete ret.__enc_email;
-        delete ret.__enc_name;
+        delete ret.password;
         return ret;
       },
     },
   }
 );
-
-userSchema.plugin(fieldEncryption, {
-  fields: ["name", "email"],
-  secret: env.ENCRYPTION_KEY,
-});
-
-userSchema.pre("validate", function hashFields(next) {
-  if (this.isModified("email") && this.email) {
-    this.emailHash = hashEmail(this.email);
-  }
-  next();
-});
 
 userSchema.pre("save", async function hashPassword(next) {
   if (!this.isModified("password")) {
@@ -86,13 +60,6 @@ userSchema.pre("save", async function hashPassword(next) {
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
-
-export function hashEmail(email: string): string {
-  return crypto
-    .createHmac("sha256", env.ENCRYPTION_KEY)
-    .update(email.toLowerCase().trim())
-    .digest("hex");
-}
 
 userSchema.methods.comparePassword = function comparePassword(
   this: UserDocument,

@@ -1,9 +1,8 @@
 import mongoose, { type ClientSession, type HydratedDocument } from "mongoose";
-import { type IOrder } from "../models/Order.js";
-import { AppError } from "../utils/AppError.js";
+import { Cart } from "../models/Cart.js";
+import { Order, type IOrder } from "../models/Order.js";
+import { ApiError } from "../utils/ApiError.js";
 import type { ListOrdersQueryInput } from "../validators/order.validator.js";
-import { OrderRepository } from "../repositories/order.repository.js";
-import { CartRepository } from "../repositories/cart.repository.js";
 
 export interface SerializedOrder {
   id: string;
@@ -66,10 +65,10 @@ export async function checkoutCart(userId: string) {
 }
 
 async function persistCheckout(userId: string, session?: ClientSession) {
-  const cart = await CartRepository.findByUserId(userId, session);
+  const cart = await Cart.findOne({ user: userId }).session(session ?? null);
 
   if (!cart || cart.items.length === 0) {
-    throw AppError.badRequest("Cannot create order from an empty cart");
+    throw ApiError.badRequest("Cannot create order from an empty cart");
   }
 
   const items = cart.items.map((item) => ({
@@ -91,12 +90,13 @@ async function persistCheckout(userId: string, session?: ClientSession) {
     total,
     status: "pending",
   } as const;
-  
-  const order = await OrderRepository.create(orderData, session);
+  const order = session
+    ? (await Order.create([orderData], { session }))[0]
+    : await Order.create(orderData);
   if (!order) throw new Error("Order creation failed");
 
   cart.items.splice(0, cart.items.length);
-  await CartRepository.save(cart, session);
+  await cart.save(session ? { session } : undefined);
 
   return serializeOrder(order);
 }
@@ -115,8 +115,13 @@ export async function getOrdersForUser(
   query: ListOrdersQueryInput
 ) {
   const { page, limit } = query;
-  const skip = (page - 1) * limit;
-  const { orders, total } = await OrderRepository.findPaginatedByUserId(userId, skip, limit);
+  const [orders, total] = await Promise.all([
+    Order.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    Order.countDocuments({ user: userId }),
+  ]);
 
   return {
     orders: orders.map(serializeOrder),
@@ -128,10 +133,10 @@ export async function getOrdersForUser(
 }
 
 export async function getOrderForUser(userId: string, orderId: string) {
-  const order = await OrderRepository.findByIdAndUserId(orderId, userId);
+  const order = await Order.findOne({ _id: orderId, user: userId });
 
   if (!order) {
-    throw AppError.notFound("Order not found");
+    throw ApiError.notFound("Order not found");
   }
 
   return serializeOrder(order);

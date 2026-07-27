@@ -6,7 +6,7 @@ import { createApp } from "../app.js";
 import { Cart } from "../models/Cart.js";
 import { Order } from "../models/Order.js";
 import { User } from "../models/User.js";
-import { catalogDb } from "../services/product.service.js";
+import { dummyjson } from "../services/product.service.js";
 
 const app = createApp();
 let mongoServer: MongoMemoryServer;
@@ -39,7 +39,7 @@ beforeEach(async () => {
     Order.deleteMany({}),
   ]);
   vi.restoreAllMocks();
-  vi.spyOn(catalogDb, "get").mockResolvedValue({
+  vi.spyOn(dummyjson, "get").mockResolvedValue({
     data: {
       id: 1,
       title: "Essence Mascara Lash Princess",

@@ -3,7 +3,7 @@
  * controller/service and the central error handler turns it into a
  * consistent JSON response.
  */
-export class AppError extends Error {
+export class ApiError extends Error {
   public readonly statusCode: number;
   public readonly details?: unknown;
 
@@ -11,23 +11,23 @@ export class AppError extends Error {
     super(message);
     this.statusCode = statusCode;
     this.details = details;
-    this.name = "AppError";
-    Error.captureStackTrace?.(this, AppError);
+    this.name = "ApiError";
+    Error.captureStackTrace?.(this, ApiError);
   }
 
   static badRequest(message = "Bad request", details?: unknown) {
-    return new AppError(400, message, details);
+    return new ApiError(400, message, details);
   }
   static unauthorized(message = "Unauthorized") {
-    return new AppError(401, message);
+    return new ApiError(401, message);
   }
   static forbidden(message = "Forbidden") {
-    return new AppError(403, message);
+    return new ApiError(403, message);
   }
   static notFound(message = "Not found") {
-    return new AppError(404, message);
+    return new ApiError(404, message);
   }
   static conflict(message = "Conflict") {
-    return new AppError(409, message);
+    return new ApiError(409, message);
   }
 }

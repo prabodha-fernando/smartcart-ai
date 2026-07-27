@@ -1,5 +1,5 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { AppError } from "../utils/AppError.js";
+import { ApiError } from "../utils/ApiError.js";
 import {
   checkoutCart,
   getOrderForUser,
@@ -12,7 +12,7 @@ import type {
 
 function getUserId(userId?: string) {
   if (!userId) {
-    throw AppError.unauthorized("Unauthorized");
+    throw ApiError.unauthorized("Unauthorized");
   }
 
   return userId;

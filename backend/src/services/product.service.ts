@@ -1,7 +1,16 @@
-import { type IProduct } from "../models/Product.js";
-import { AppError } from "../utils/AppError.js";
-import { ProductRepository } from "../repositories/product.repository.js";
-import { CategoryRepository } from "../repositories/category.repository.js";
+import axios from "axios";
+import { env } from "../config/env.js";
+import { ApiError } from "../utils/ApiError.js";
+
+/**
+ * Products stay sourced from DummyJSON, but every call goes through this
+ * backend rather than the browser. This client is shared by the product proxy
+ * routes and by cart/wishlist (which snapshot product details at add-time).
+ */
+export const dummyjson = axios.create({
+  baseURL: env.DUMMYJSON_BASE_URL,
+  timeout: 10_000,
+});
 
 export interface ProductSnapshot {
   productId: number;
@@ -11,183 +20,104 @@ export interface ProductSnapshot {
   rating: number;
 }
 
-export type CatalogProduct = IProduct;
-
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
+interface CatalogProduct {
+  id: number;
+  title?: string;
+  description?: string;
+  category?: string;
+  brand?: string;
+  tags?: string[];
+  rating?: number;
+  [key: string]: unknown;
 }
 
-export interface PaginatedResult<T> {
-  data: T[];
-  pagination: PaginationMeta;
-}
+export async function searchCatalog(query: string, skip = 0, limit = 100) {
+  const normalizedQuery = normalizeSearchText(query).slice(0, 100);
+  if (!normalizedQuery) return { products: [], total: 0, skip, limit };
 
-function getSortObj(sort?: string) {
-  switch (sort) {
-    case "price_asc": return { price: 1 };
-    case "price_desc": return { price: -1 };
-    case "rating": return { rating: -1 };
-    default: return { id: 1 };
-  }
-}
+  const { data } = await dummyjson.get("/products", { params: { limit: 0 } });
+  const products = (Array.isArray(data.products) ? data.products : []) as CatalogProduct[];
+  const tokens = normalizedQuery.split(" ").filter(Boolean);
+  const rankMatches = (requireEveryToken: boolean) => products
+    .map((product) => ({
+      product,
+      score: catalogSearchScore(product, normalizedQuery, tokens, requireEveryToken),
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || (b.product.rating ?? 0) - (a.product.rating ?? 0))
+    .map(({ product }) => product);
+  const exactMatches = rankMatches(true);
+  const matches = exactMatches.length > 0 || tokens.length === 1
+    ? exactMatches
+    : rankMatches(false);
 
-async function listProductsFromDb(page = 1, limit = 30, sort?: string): Promise<PaginatedResult<IProduct>> {
-  const skip = (page - 1) * limit;
-  const { data, total } = await ProductRepository.findPaginated({}, getSortObj(sort) as any, skip, limit);
   return {
-    data,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
+    products: matches.slice(skip, skip + limit),
+    total: matches.length,
+    skip,
+    limit,
   };
 }
 
-async function searchCatalogFromDb(query: string, page = 1, limit = 100, sort?: string): Promise<PaginatedResult<IProduct>> {
-  if (!query.trim()) return { data: [], pagination: { page, limit, total: 0, totalPages: 1 } };
-  const filter = { $text: { $search: query } };
+function catalogSearchScore(
+  product: CatalogProduct,
+  query: string,
+  tokens: string[],
+  requireEveryToken: boolean
+) {
+  const title = normalizeSearchText(product.title ?? "");
+  const brand = normalizeSearchText(product.brand ?? "");
+  const category = normalizeSearchText(product.category ?? "");
+  const tags = normalizeSearchText((product.tags ?? []).join(" "));
+  const description = normalizeSearchText(product.description ?? "");
+  const searchable = `${title} ${brand} ${category} ${tags} ${description}`;
+  const matchedTokens = tokens.filter((token) => searchable.includes(token));
+  if (matchedTokens.length === 0) return 0;
+  if (requireEveryToken && matchedTokens.length !== tokens.length) return 0;
 
-  let sortObj: any = { score: { $meta: "textScore" } };
-  if (sort) {
-    sortObj = getSortObj(sort);
-  }
-
-  const skip = (page - 1) * limit;
-  const isTextSearch = !sort;
-  const { data, total } = await ProductRepository.searchPaginated(filter, sortObj, skip, limit, isTextSearch);
-  return {
-    data,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
-  };
+  return (
+    matchedTokens.length * 10 +
+    (title === query ? 100 : 0) +
+    (title.includes(query) ? 50 : 0) +
+    (brand.includes(query) ? 35 : 0) +
+    (category.includes(query) ? 30 : 0) +
+    (tags.includes(query) ? 20 : 0) +
+    tokens.reduce(
+      (score, token) =>
+        score +
+        (title.includes(token) ? 12 : 0) +
+        (brand.includes(token) ? 8 : 0) +
+        (category.includes(token) ? 7 : 0) +
+        (tags.includes(token) ? 5 : 0) +
+        (description.includes(token) ? 2 : 0),
+      0
+    )
+  );
 }
 
-async function getProductsByCategoryFromDb(category: string, page = 1, limit = 30, sort?: string): Promise<PaginatedResult<IProduct>> {
-  const skip = (page - 1) * limit;
-  const { data, total } = await ProductRepository.findPaginated({ category }, getSortObj(sort) as any, skip, limit);
-  return {
-    data,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
-  };
-}
-
-function toCategoryName(slug: string) {
-  return slug.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-// Simple in-memory cache
-const cache = new Map<string, { expires: number, data: any }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-async function getProductCategoriesFromDb() {
-  const cacheKey = "categories";
-  const cached = cache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) return cached.data;
-
-  let result;
-  const categories = await CategoryRepository.findAll();
-  if (categories.length > 0) {
-    result = categories.map(({ slug, name }) => ({
-      slug,
-      name: name || toCategoryName(slug),
-      url: `/api/products/category/${slug}`,
-    }));
-  } else {
-    // Fallback
-    const slugs = await ProductRepository.findDistinctCategories();
-    result = slugs.sort().map((slug) => ({
-      slug,
-      name: toCategoryName(slug),
-      url: `/api/products/category/${slug}`,
-    }));
-  }
-
-  cache.set(cacheKey, { expires: Date.now() + CACHE_TTL, data: result });
-  return result;
-}
-
-async function getProductByIdFromDb(productId: number) {
-  const product = await ProductRepository.findById(productId);
-  if (!product) throw AppError.notFound(`Product ${productId} not found`);
-  return product;
-}
-
-export async function updateProductInDb(productId: number, updates: Partial<IProduct>) {
-  const product = await ProductRepository.updateById(productId, updates);
-  if (!product) throw AppError.notFound(`Product ${productId} not found`);
-  return product;
-}
-
-export async function fetchProductSnapshot(productId: number): Promise<ProductSnapshot> {
-  const product = await getProductById(productId);
-  return {
-    productId: product.id,
-    title: product.title,
-    price: product.price,
-    thumbnail: product.thumbnail,
-    rating: product.rating,
-  };
+function normalizeSearchText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 /**
- * Database-backed catalog gateway. It preserves one catalog interface for
- * product browsing, carts, wishlists, and AI while keeping all data in MongoDB.
+ * Fetch a product from the upstream catalog and reduce it to the fields we
+ * persist on cart/wishlist/order items. Doubles as validation that the
+ * productId actually exists.
  */
-export const catalogDb = {
-  async get(
-    path: string,
-    options?: { params?: Record<string, unknown> }
-  ): Promise<{ data: any }> {
-    const params = options?.params ?? {};
-
-    // AI service might still pass 'skip', we need to convert it to page
-    let page = readNumber(params.page, 1);
-    const limit = readNumber(params.limit, 30);
-    const sort = typeof params.sort === "string" ? params.sort : undefined;
-
-    if (params.skip !== undefined && params.page === undefined) {
-      page = Math.floor(readNumber(params.skip, 0) / limit) + 1;
+export async function fetchProductSnapshot(productId: number): Promise<ProductSnapshot> {
+  try {
+    const { data } = await dummyjson.get(`/products/${productId}`);
+    return {
+      productId: data.id,
+      title: data.title,
+      price: data.price,
+      thumbnail: data.thumbnail ?? "",
+      rating: data.rating ?? 0,
+    };
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+      throw ApiError.notFound(`Product ${productId} not found`);
     }
-
-    if (path === "/products") {
-      return { data: await listProductsFromDb(page, limit === 0 ? 10_000 : limit, sort) };
-    }
-    if (path === "/products/search") {
-      return { data: await searchCatalogFromDb(String(params.q ?? ""), page, limit, sort) };
-    }
-    if (path === "/products/categories") {
-      return { data: await getProductCategoriesFromDb() };
-    }
-    if (path.startsWith("/products/category/")) {
-      return { data: await getProductsByCategoryFromDb(decodeURIComponent(path.slice(19)), page, limit, sort) };
-    }
-    if (/^\/products\/\d+$/.test(path)) {
-      return { data: await getProductByIdFromDb(Number(path.slice(10))) };
-    }
-    throw AppError.notFound("Product catalog route not found");
-  },
-};
-
-export async function listProducts(page = 1, limit = 30, sort?: string) {
-  return (await catalogDb.get("/products", { params: { page, limit, sort } })).data;
-}
-
-export async function searchCatalog(query: string, page = 1, limit = 100, sort?: string) {
-  return (await catalogDb.get("/products/search", { params: { q: query, page, limit, sort } })).data;
-}
-
-export async function getProductsByCategory(category: string, page = 1, limit = 30, sort?: string) {
-  return (await catalogDb.get(`/products/category/${encodeURIComponent(category)}`, { params: { page, limit, sort } })).data;
-}
-
-export async function getProductCategories() {
-  return (await catalogDb.get("/products/categories")).data;
-}
-
-export async function getProductById(productId: number) {
-  return (await catalogDb.get(`/products/${productId}`)).data;
-}
-
-function readNumber(value: unknown, fallback: number) {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+    throw new ApiError(502, "Failed to reach the product service");
+  }
 }

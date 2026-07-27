@@ -1,12 +1,12 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
-import { AppError } from "../utils/AppError.js";
+import { ApiError } from "../utils/ApiError.js";
 import { env } from "../config/env.js";
 
 /** 404 handler for unmatched routes. Registered after all routes. */
 export const notFound: RequestHandler = (req, _res, next) => {
-  next(AppError.notFound(`Route not found: ${req.method} ${req.originalUrl}`));
+  next(ApiError.notFound(`Route not found: ${req.method} ${req.originalUrl}`));
 };
 
 /**
@@ -20,7 +20,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   let message = "Internal server error";
   let details: unknown;
 
-  if (err instanceof AppError) {
+  if (err instanceof ApiError) {
     statusCode = err.statusCode;
     message = err.message;
     details = err.details;

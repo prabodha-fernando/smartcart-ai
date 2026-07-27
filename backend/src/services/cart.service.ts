@@ -1,12 +1,11 @@
 import { Types, type HydratedDocument } from "mongoose";
-import { type ICart, type ICartItem } from "../models/Cart.js";
-import { AppError } from "../utils/AppError.js";
+import { Cart, type ICart, type ICartItem } from "../models/Cart.js";
+import { ApiError } from "../utils/ApiError.js";
 import { fetchProductSnapshot } from "./product.service.js";
 import type {
   AddCartItemInput,
   UpdateCartItemInput,
 } from "../validators/cart.validator.js";
-import { CartRepository } from "../repositories/cart.repository.js";
 
 export interface SerializedCartItem {
   id: string;
@@ -48,9 +47,9 @@ function serializeCart(cart: HydratedDocument<ICart>): SerializedCart {
 }
 
 async function getOrCreateCart(userId: string) {
-  const existing = await CartRepository.findByUserId(userId);
+  const existing = await Cart.findOne({ user: userId });
 
-  return existing ?? CartRepository.create(userId);
+  return existing ?? Cart.create({ user: userId, items: [] });
 }
 
 function findItem(cart: HydratedDocument<ICart>, id: string): ICartItem | undefined {
@@ -95,7 +94,7 @@ export async function addItemToCart(userId: string, input: AddCartItemInput) {
     } as ICartItem);
   }
 
-  await CartRepository.save(cart);
+  await cart.save();
 
   return serializeCart(cart);
 }
@@ -109,11 +108,11 @@ export async function updateCartItemQuantity(
   const item = findItem(cart, itemId);
 
   if (!item) {
-    throw AppError.notFound("Item not in cart");
+    throw ApiError.notFound("Item not in cart");
   }
 
   item.quantity = input.quantity;
-  await CartRepository.save(cart);
+  await cart.save();
 
   return serializeCart(cart);
 }
@@ -123,12 +122,12 @@ export async function removeCartItem(userId: string, itemId: string) {
   const item = findItem(cart, itemId);
 
   if (!item) {
-    throw AppError.notFound("Item not in cart");
+    throw ApiError.notFound("Item not in cart");
   }
 
   const index = cart.items.findIndex((cartItem) => cartItem._id.equals(item._id));
   cart.items.splice(index, 1);
-  await CartRepository.save(cart);
+  await cart.save();
 
   return serializeCart(cart);
 }
@@ -137,7 +136,7 @@ export async function clearCart(userId: string) {
   const cart = await getOrCreateCart(userId);
 
   cart.items.splice(0, cart.items.length);
-  await CartRepository.save(cart);
+  await cart.save();
 
   return serializeCart(cart);
 }

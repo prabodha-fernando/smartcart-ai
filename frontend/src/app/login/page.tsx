@@ -35,7 +35,7 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login);
 
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("emily.johnson@smartcart.local");
+  const [email, setEmail] = useState("emily.johnson@x.dummyjson.com");
   const [password, setPassword] = useState("emilyspass");
   const [showPassword, setShowPassword] = useState(false);
   const [signup, setSignup] = useState({
@@ -77,10 +77,10 @@ export default function LoginPage() {
   };
 
   const handleGuestLogin = async () => {
-    setEmail("emily.johnson@smartcart.local");
+    setEmail("emily.johnson@x.dummyjson.com");
     setPassword("emilyspass");
     await submitLogin({
-      email: "emily.johnson@smartcart.local",
+      email: "emily.johnson@x.dummyjson.com",
       password: "emilyspass",
     });
   };
@@ -273,7 +273,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={() =>
                         toast(
-                          "Use the demo account: emily.johnson@smartcart.local / emilyspass"
+                          "Use the demo account: emily.johnson@x.dummyjson.com / emilyspass"
                         )
                       }
                       className="text-blue-700 transition hover:opacity-70"

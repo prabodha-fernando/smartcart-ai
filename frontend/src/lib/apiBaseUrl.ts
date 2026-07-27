@@ -1,4 +1,5 @@
 const LOCAL_API_BASE_URL = "http://localhost:4000/api";
+const DUMMYJSON_HOSTS = new Set(["dummyjson.com", "www.dummyjson.com"]);
 
 function isLoopbackHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
@@ -13,6 +14,10 @@ function normalizeApiUrl(url: string | undefined) {
 
   try {
     const parsedUrl = new URL(configuredUrl, LOCAL_API_BASE_URL);
+
+    if (DUMMYJSON_HOSTS.has(parsedUrl.hostname)) {
+      return null;
+    }
 
     return configuredUrl.replace(/\/+$/, "");
   } catch {

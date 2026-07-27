@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import crypto from "crypto";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -41,7 +40,7 @@ describe("Auth API", () => {
     expect(registerResponse.body.data.accessToken).toEqual(expect.any(String));
     expect(registerResponse.body.data.refreshToken).toEqual(expect.any(String));
 
-    const storedUser = await User.findOne({ emailHash: crypto.createHmac("sha256", process.env.ENCRYPTION_KEY!).update(credentials.email.toLowerCase().trim()).digest("hex") }).select(
+    const storedUser = await User.findOne({ email: credentials.email }).select(
       "+password"
     );
     expect(storedUser?.password).not.toBe(credentials.password);
