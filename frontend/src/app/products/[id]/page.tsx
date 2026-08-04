@@ -239,21 +239,7 @@ export default function ProductDetailsPage() {
         <WhyBuyThis product={product} />
       </section>
 
-      <section className="app-container py-8">
-        <div className="grid rounded-[1.5rem] border border-blue-100 bg-[#eef3ff] p-8 lg:grid-cols-[1.5fr_0.8fr]">
-          <AIAssistant
-            contextProduct={assistantProduct}
-            onFirstPrompt={(prompt) =>
-              floatingAssistantRef.current?.openWithPrompt(prompt)
-            }
-          />
-          <div className="hidden items-center justify-center lg:flex">
-            <div className="flex h-72 w-72 items-center justify-center rounded-full bg-blue-100 text-blue-300">
-              <SparkIcon />
-            </div>
-          </div>
-        </div>
-      </section>
+
 
       <section className="app-container py-12">
         <div className="flex items-center justify-between">

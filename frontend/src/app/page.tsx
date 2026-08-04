@@ -108,15 +108,7 @@ export default function HomePage() {
           </motion.div>
         </section>
 
-        {!isLoading && !isError && data?.products && (
-          <section id="assistant" className="app-container py-6">
-            <AIAssistant
-              onFirstPrompt={(prompt) =>
-                floatingAssistantRef.current?.openWithPrompt(prompt)
-              }
-            />
-          </section>
-        )}
+
 
         <section className="app-container py-12">
           <div className="flex items-end justify-between">

@@ -59,7 +59,7 @@ function FloatingAIAssistant(
             ? { opacity: 1, y: 0, scale: 1 }
             : { opacity: 0, y: 16, scale: 0.98 }
         }
-        aria-hidden={!open}
+        inert={!open ? true : undefined}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         className={`fixed inset-x-4 bottom-24 z-[60] max-h-[calc(100vh-8rem)] overflow-y-auto rounded-[1.35rem] border border-white/70 bg-white/86 shadow-[0_24px_70px_rgba(15,23,42,0.22)] backdrop-blur-2xl sm:left-auto sm:right-6 sm:w-[min(36rem,calc(100vw-3rem))] md:bottom-28 ${
           open ? "visible pointer-events-auto" : "invisible pointer-events-none"

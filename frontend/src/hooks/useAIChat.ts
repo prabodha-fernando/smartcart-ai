@@ -10,7 +10,7 @@ import type {
 } from "@/types/product";
 import { useCartStore, type CartItem } from "@/store/cartStore";
 import { useFavoritesStore } from "@/store/favoritesStore";
-import { askAIChat } from "@/services/api";
+import { askAIChat, getChatHistory } from "@/services/api";
 
 export function useAIChat(contextProducts?: LimitedProduct[]) {
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
@@ -28,6 +28,44 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
   const clearFavorites = useFavoritesStore((state) => state.clearFavorites);
 
   const lastProductsRef = useRef<LimitedProduct[]>(contextProducts ?? []);
+  const channelRef = useRef<BroadcastChannel | null>(null);
+  const hasSyncedRef = useRef<boolean>(false);
+
+  // Initialize BroadcastChannel
+  useEffect(() => {
+    channelRef.current = new BroadcastChannel("ai_chat_sync");
+
+    channelRef.current.onmessage = (event) => {
+      if (event.data.type === "SYNC_MESSAGES") {
+        hasSyncedRef.current = true;
+        setMessages(event.data.messages);
+      }
+    };
+
+    return () => {
+      channelRef.current?.close();
+    };
+  }, []);
+
+  // Fetch initial chat history
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const history = await getChatHistory();
+        if (history && history.length > 0 && !hasSyncedRef.current) {
+          const formattedHistory: AIChatMessage[] = history.map(h => ({
+            role: h.role,
+            content: h.content,
+          }));
+          setMessages(formattedHistory);
+        }
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      }
+    }
+
+    loadHistory();
+  }, []);
 
   useEffect(() => {
     if (contextProducts && contextProducts.length > 0 && messages.length === 0) {
@@ -41,6 +79,12 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
         if (prev.length === 0) return prev;
         const next = [...prev];
         next[next.length - 1] = updater(next[next.length - 1]);
+
+        // Broadcast the updated messages after state update
+        if (channelRef.current) {
+          channelRef.current.postMessage({ type: "SYNC_MESSAGES", messages: next });
+        }
+
         return next;
       });
     },
@@ -60,7 +104,12 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
         { role: "user", content },
       ];
 
-      setMessages([...history, { role: "assistant", content: "" }]);
+      const newMessagesState = [...history, { role: "assistant", content: "" } as AIChatMessage];
+      setMessages(newMessagesState);
+
+      if (channelRef.current) {
+        channelRef.current.postMessage({ type: "SYNC_MESSAGES", messages: newMessagesState });
+      }
 
       try {
         const localAction = resolveChatCrudCommand(content, {
@@ -112,9 +161,9 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
           m.content
             ? m
             : {
-                ...m,
-                content: message,
-              }
+              ...m,
+              content: message,
+            }
         );
       } finally {
         setIsStreaming(false);
@@ -141,6 +190,9 @@ export function useAIChat(contextProducts?: LimitedProduct[]) {
     setMessages([]);
     lastProductsRef.current = contextProducts ?? [];
     setError(null);
+    if (channelRef.current) {
+      channelRef.current.postMessage({ type: "SYNC_MESSAGES", messages: [] });
+    }
   }, [contextProducts]);
 
   return { messages, isStreaming, error, send, reset };
@@ -375,9 +427,8 @@ function readFavorites(items: FavoriteItem[]): ChatCrudResult {
   }
 
   return {
-    reply: `You have ${items.length} favorite item${
-      items.length === 1 ? "" : "s"
-    }.`,
+    reply: `You have ${items.length} favorite item${items.length === 1 ? "" : "s"
+      }.`,
     products: items,
   };
 }
