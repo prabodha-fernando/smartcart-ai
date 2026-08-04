@@ -1,5 +1,4 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import { useAuthStore } from "@/store/authStore";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 
@@ -21,24 +20,6 @@ export const privateApi = axios.create({
     "Content-Type": "application/json",
   },
 });
-
-const decryptionInterceptor = (response: any) => {
-  if (response.data && response.data.encryptedPayload) {
-    try {
-      const key = process.env.NEXT_PUBLIC_ENCRYPTION_KEY || "";
-      const bytes = CryptoJS.AES.decrypt(response.data.encryptedPayload, key);
-      const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-      if (decryptedString) {
-        response.data = JSON.parse(decryptedString);
-      }
-    } catch (error) {
-      console.error("Failed to decrypt API payload:", error);
-    }
-  }
-  return response;
-};
-
-publicApi.interceptors.response.use(decryptionInterceptor, (error) => Promise.reject(error));
 
 function getJwtExpiry(token: string | null): number | null {
   if (!token) return null;
@@ -96,6 +77,8 @@ async function getFreshAccessToken() {
   return refreshPromise;
 }
 
+import { decryptPayload, encryptPayload } from "@/lib/encryption";
+
 // REQUEST INTERCEPTOR
 privateApi.interceptors.request.use(
   async (config) => {
@@ -106,15 +89,42 @@ privateApi.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
+    
+    // Encrypt sensitive payloads if needed, or all POST/PUT bodies
+    if (config.data && typeof config.data === 'object' && !config.data.iv && !config.data.data) {
+      config.data = encryptPayload(config.data);
+    }
 
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+publicApi.interceptors.request.use(
+  (config) => {
+    // Encrypt sensitive payloads if needed, or all POST/PUT bodies
+    if (config.data && typeof config.data === 'object' && !config.data.iv && !config.data.data) {
+      config.data = encryptPayload(config.data);
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Decrypt interceptor logic
+const decryptInterceptor = (response: any) => {
+  if (response.data && response.data.iv && response.data.data) {
+    const decrypted = decryptPayload(response.data.iv, response.data.data);
+    if (decrypted) {
+      response.data = decrypted;
+    }
+  }
+  return response;
+};
+
 // RESPONSE INTERCEPTOR
 privateApi.interceptors.response.use(
-  decryptionInterceptor,
+  decryptInterceptor,
   async (error) => {
     const originalRequest = error.config;
 
@@ -132,6 +142,7 @@ privateApi.interceptors.response.use(
           refreshToken,
         });
 
+        // The publicApi already decrypted this response
         const newAccessToken = response.data.data.accessToken;
         const newRefreshToken = response.data.data.refreshToken;
 
@@ -139,12 +150,15 @@ privateApi.interceptors.response.use(
 
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
+        // Ensure we don't double-encrypt the payload on retry if it's already encrypted
         return privateApi(originalRequest);
       } catch (refreshError) {
         useAuthStore.getState().logout();
 
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+          }
         }
 
         return Promise.reject(refreshError);
@@ -153,4 +167,9 @@ privateApi.interceptors.response.use(
 
     return Promise.reject(error);
   }
+);
+
+publicApi.interceptors.response.use(
+  decryptInterceptor,
+  (error) => Promise.reject(error)
 );

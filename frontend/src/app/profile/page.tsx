@@ -144,7 +144,7 @@ export default function ProfilePage() {
                     </div>
                   )}
                   <button
-                    onClick={() => toast("Profile photo editing isn't available yet.")}
+                    onClick={() => toast("Profile photo editing is not available in DummyJSON.")}
                     className="absolute bottom-3 right-3 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg"
                   >
                     <Pencil size={22} />

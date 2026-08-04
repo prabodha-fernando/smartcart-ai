@@ -102,12 +102,10 @@ export async function refreshAccessToken(
 
 export async function getProducts(
   limit: number = 12,
-  page: number = 1,
-  sort?: string
+  skip: number = 0
 ): Promise<ProductsResponse> {
-  const sortParam = sort ? `&sort=${sort}` : "";
   const response = await publicApi.get(
-    `/products?limit=${limit}&page=${page}${sortParam}`
+    `/products?limit=${limit}&skip=${skip}`
   );
 
   return response.data;
@@ -122,12 +120,10 @@ export async function getProductById(
 }
 
 export async function searchProducts(
-  query: string,
-  sort?: string
+  query: string
 ): Promise<ProductsResponse> {
-  const sortParam = sort ? `&sort=${sort}` : "";
   const response = await publicApi.get(
-    `/products/search?q=${encodeURIComponent(query)}${sortParam}`
+    `/products/search?q=${encodeURIComponent(query)}`
   );
 
   return response.data;
@@ -140,11 +136,9 @@ export async function getCategories(): Promise<ProductCategory[]> {
 }
 
 export async function getProductsByCategory(
-  category: string,
-  sort?: string
+  category: string
 ): Promise<ProductsResponse> {
-  const sortParam = sort ? `?sort=${sort}` : "";
-  const response = await publicApi.get(`/products/category/${category}${sortParam}`);
+  const response = await publicApi.get(`/products/category/${category}`);
 
   return response.data;
 }
@@ -161,10 +155,10 @@ export async function getProductsByIds(
 
 export async function getLimitedProducts(
   limit: number,
-  page: number
+  skip: number
 ): Promise<LimitedProductsResponse> {
   const response = await publicApi.get(
-    `/products?limit=${limit}&page=${page}&select=title,price,rating,thumbnail`
+    `/products?limit=${limit}&skip=${skip}&select=title,price,rating,thumbnail`
   );
 
   return response.data;
@@ -409,6 +403,11 @@ export async function askAIChat(
     }
   );
   return response.data;
+}
+
+export async function getChatHistory(): Promise<{ id: string; role: "user" | "assistant"; content: string; createdAt: string }[]> {
+  const response = await privateApi.get<{ success: boolean; data: { id: string; role: "user" | "assistant"; content: string; createdAt: string }[] }>("/ai/chat/history");
+  return response.data.data;
 }
 
 export async function getWhyBuy(

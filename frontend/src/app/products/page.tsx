@@ -9,14 +9,13 @@ import ErrorMessage from "@/components/ui/ErrorMessage";
 import EmptyState from "@/components/ui/EmptyState";
 import Footer from "@/components/layout/Footer";
 import AIAssistant from "@/components/ai/AIAssistant";
-import FloatingAIAssistant, { type FloatingAIAssistantHandle } from "@/components/ai/FloatingAIAssistant";
 import {
   useSearchProducts,
   useCategories,
   useProductsByCategory,
   useInfiniteLimitedProducts,
 } from "@/hooks/useProducts";
-import { Suspense, useState, useRef } from "react";
+import { Suspense, useState } from "react";
 import { Bot, ChevronDown } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { LimitedProduct } from "@/types/product";
@@ -43,19 +42,14 @@ export default function ProductsPage() {
 function ProductsContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("search") ?? "";
-  const initialCategory = searchParams.get("category") ?? undefined;
 
   return <ProductsState key={searchQuery} initialSearch={searchQuery} />;
 }
 
 function ProductsState({ initialSearch }: { initialSearch: string }) {
+  const [search, setSearch] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [search, setSearch] = useState(initialSearch ?? "");
-  const [sortBy, setSortBy] = useState<"featured" | "price" | "rating">(
-    "featured"
-  );
-  
-  const floatingAssistantRef = useRef<FloatingAIAssistantHandle>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("featured");
   const [sortOpen, setSortOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(search);
 
@@ -74,13 +68,13 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
   const searchResults = searchQuery.data;
 
   const loadedProducts =
-    limitedProducts?.pages.flatMap((page) => page.data) ?? [];
+    limitedProducts?.pages.flatMap((page) => page.products) ?? [];
 
   const products =
     debouncedSearch.length > 0
-      ? searchResults?.data
+      ? searchResults?.products
       : selectedCategory
-      ? categoryProducts?.data
+      ? categoryProducts?.products
       : loadedProducts;
 
   const sortedProducts = sortProducts(products || [], sortBy);
@@ -255,15 +249,22 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
         </section>
 
         <section id="products-ai" className="app-container pb-10">
-          <AIAssistant 
-            onFirstPrompt={(prompt) =>
-              floatingAssistantRef.current?.openWithPrompt(prompt)
-            }
-          />
+          <AIAssistant />
         </section>
 
+        <button
+          onClick={() =>
+            document
+              .getElementById("products-ai")
+              ?.scrollIntoView({ behavior: "smooth" })
+          }
+          className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-[0_16px_40px_rgba(0,74,198,0.35)] motion-safe:transition motion-safe:hover:scale-105 md:bottom-10 md:right-10 md:h-16 md:w-16"
+          aria-label="Open AI assistant"
+        >
+          <Bot size={26} />
+        </button>
+
         <Footer />
-        <FloatingAIAssistant ref={floatingAssistantRef} />
       </main>
     </ProtectedRoute>
   );

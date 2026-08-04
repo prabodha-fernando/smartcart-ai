@@ -17,8 +17,8 @@ export interface User {
   role: string;
 
   // Optional profile extras. The backend's /auth/me returns the core fields
-  // above; these richer fields only appear once a user fills them in, so
-  // consumers must treat them as optional.
+  // above; these richer fields only exist on the legacy DummyJSON profile (or
+  // once a user fills them in), so consumers must treat them as optional.
   maidenName?: string;
   age?: number;
   birthDate?: string;

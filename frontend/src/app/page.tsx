@@ -90,7 +90,7 @@ export default function HomePage() {
             <div className="mx-auto max-w-md rounded-3xl bg-white/80 p-7 shadow-[0_28px_80px_rgba(15,23,42,0.16)]">
               <div className="mb-5 h-5 w-44 rounded-full bg-blue-100" />
               <div className="grid grid-cols-2 gap-5 rounded-2xl bg-[#dfe7ff] p-5">
-                {data?.data?.slice(0, 2).map((product) => (
+                {data?.products?.slice(0, 2).map((product) => (
                   <div key={product.id} className="rounded-xl bg-[#eef3ff] p-4">
                     <div className="relative h-32 rounded-lg bg-white">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -108,7 +108,7 @@ export default function HomePage() {
           </motion.div>
         </section>
 
-        {!isLoading && !isError && data?.data && (
+        {!isLoading && !isError && data?.products && (
           <section id="assistant" className="app-container py-6">
             <AIAssistant
               onFirstPrompt={(prompt) =>
@@ -174,7 +174,7 @@ export default function HomePage() {
 
           {!isLoading && !isError && (
             <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {data?.data?.slice(0, 4).map((product, index) => (
+              {data?.products?.slice(0, 4).map((product, index) => (
                 <ProductCard
                   key={product.id}
                   product={product}
