@@ -23,7 +23,7 @@ export const aiRateLimit: RequestHandler = async (req, _res, next) => {
     if (record.count > env.AI_RATE_LIMIT_PER_MINUTE) {
       return next(new ApiError(429, "AI request limit exceeded. Please try again shortly."));
     }
-    if (userId) req.userId = userId;
+    if (userId) (req as any).userId = userId;
     next();
   } catch (error) {
     next(error);

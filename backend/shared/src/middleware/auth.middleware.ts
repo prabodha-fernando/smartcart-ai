@@ -12,7 +12,7 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
   try {
     const token = authHeader.slice("Bearer ".length);
     const payload = verifyAccessToken(token);
-    req.userId = payload.userId;
+    (req as any).userId = payload.userId;
     next();
   } catch {
     next(ApiError.unauthorized("Invalid or expired access token"));

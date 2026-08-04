@@ -8,7 +8,7 @@ const app = express();
 
 let isDbConnected = false;
 
-app.use(async (req, res, next) => {
+app.use(async (_req, _res, next) => {
   if (!isDbConnected) {
     await connectDB();
     isDbConnected = true;
