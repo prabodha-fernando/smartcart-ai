@@ -405,6 +405,11 @@ export async function askAIChat(
   return response.data;
 }
 
+export async function getChatHistory(): Promise<{ id: string; role: "user" | "assistant"; content: string; createdAt: string }[]> {
+  const response = await privateApi.get<{ success: boolean; data: { id: string; role: "user" | "assistant"; content: string; createdAt: string }[] }>("/ai/chat/history");
+  return response.data.data;
+}
+
 export async function getWhyBuy(
   product: Partial<Product>,
   variation: 0 | 1 | 2 = 0

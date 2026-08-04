@@ -1,48 +1,19 @@
 {
   "name": "smartcart-backend",
   "version": "1.0.0",
-  "description": "Standalone REST API for SmartCart AI — auth, cart, wishlist, orders",
-  "main": "dist/server.js",
-  "type": "module",
+  "description": "SmartCart AI Microservices Workspace",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "services/*"
+  ],
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "seed": "tsx src/scripts/seed.ts",
-    "typecheck": "tsc --noEmit",
+    "dev:all": "concurrently -c \"cyan,magenta,yellow\" \"npm run dev -w @smartcart/auth-service\" \"npm run dev -w @smartcart/order-service\" \"npm run dev -w @smartcart/ai-service\"",
+    "dev": "npm run dev:all",
     "test": "vitest run"
   },
-  "keywords": [
-    "express",
-    "typescript",
-    "mongodb",
-    "rest-api"
-  ],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.7",
-    "@types/morgan": "^1.9.9",
-    "@types/node": "^22.10.5",
-    "axios": "^1.18.1",
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.6",
-    "dotenv": "^16.6.1",
-    "express": "^4.22.2",
-    "helmet": "^8.2.0",
-    "jsonwebtoken": "^9.0.3",
-    "mongoose": "^8.24.1",
-    "morgan": "^1.11.0",
-    "typescript": "^5.7.3",
-    "zod": "^3.25.76"
-  },
   "devDependencies": {
-    "@types/supertest": "^7.2.0",
-    "mongodb-memory-server": "^11.2.0",
-    "supertest": "^7.2.2",
+    "concurrently": "^8.2.2",
     "tsx": "^4.19.2",
     "vitest": "^4.1.10"
   }
