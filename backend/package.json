@@ -2,6 +2,7 @@
   "name": "smartcart-backend",
   "version": "1.0.0",
   "description": "SmartCart AI Microservices Workspace",
+  "type": "module",
   "private": true,
   "workspaces": [
     "shared",
