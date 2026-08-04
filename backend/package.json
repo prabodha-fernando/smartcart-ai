@@ -10,7 +10,8 @@
   "scripts": {
     "dev:all": "concurrently -c \"cyan,magenta,yellow\" \"npm run dev -w @smartcart/auth-service\" \"npm run dev -w @smartcart/order-service\" \"npm run dev -w @smartcart/ai-service\"",
     "dev": "npm run dev:all",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build": "npm run build -w @smartcart/shared"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
