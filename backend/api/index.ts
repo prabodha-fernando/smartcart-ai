@@ -16,6 +16,10 @@ app.use(async (_req, _res, next) => {
   next();
 });
 
+app.get("/", (_req, res) => {
+  res.status(200).json({ status: "ok", message: "SmartCart API is running natively on Vercel 🚀" });
+});
+
 app.use(createAuthApp());
 app.use(createOrderApp());
 app.use(createAiApp());
