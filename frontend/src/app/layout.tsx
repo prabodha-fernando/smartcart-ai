@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
-import AiChatWidget from "./components/AiChatWidget";
 
 export const metadata: Metadata = {
   title: "SmartCart AI",
@@ -18,7 +17,6 @@ export default function RootLayout({
       <body>
         <Providers>
           {children}
-          <AiChatWidget />
         </Providers>
       </body>
     </html>

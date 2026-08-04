@@ -8,7 +8,7 @@ import ProductSkeleton from "@/components/products/ProductSkeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import EmptyState from "@/components/ui/EmptyState";
 import Footer from "@/components/layout/Footer";
-import AIAssistant from "@/components/ai/AIAssistant";
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import {
   useSearchProducts,
   useCategories,
@@ -248,23 +248,8 @@ function ProductsState({ initialSearch }: { initialSearch: string }) {
           )}
         </section>
 
-        <section id="products-ai" className="app-container pb-10">
-          <AIAssistant />
-        </section>
-
-        <button
-          onClick={() =>
-            document
-              .getElementById("products-ai")
-              ?.scrollIntoView({ behavior: "smooth" })
-          }
-          className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-[0_16px_40px_rgba(0,74,198,0.35)] motion-safe:transition motion-safe:hover:scale-105 md:bottom-10 md:right-10 md:h-16 md:w-16"
-          aria-label="Open AI assistant"
-        >
-          <Bot size={26} />
-        </button>
-
         <Footer />
+        <FloatingAIAssistant />
       </main>
     </ProtectedRoute>
   );
