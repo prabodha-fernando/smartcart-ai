@@ -10,9 +10,9 @@ let messageId = 0;
 const pendingPromises = new Map();
 function getWorker() {
     if (!worker) {
-        // Determine the path to the worker file. 
         // It works with both .ts via tsx loader and .js in compiled dist.
-        const workerPath = fileURLToPath(new URL('./encryption.worker.ts', import.meta.url));
+        const isTs = import.meta.url.endsWith('.ts');
+        const workerPath = fileURLToPath(new URL(`./encryption.worker.${isTs ? 'ts' : 'js'}`, import.meta.url));
         worker = new Worker(workerPath);
         worker.on('message', (msg) => {
             const p = pendingPromises.get(msg.id);
